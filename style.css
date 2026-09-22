@@ -1,0 +1,2213 @@
+/* 冰晶薄荷玻璃边框 / 汽水按钮 公共变量（全站统一视觉语言） */
+:root {
+    --glass-border: rgba(255, 255, 255, 0.62);
+    --mint-ring: rgba(125, 211, 196, 0.32);
+    --mint-soft: rgba(77, 182, 172, 0.25);
+}
+
+/* General Styles */
+body {
+    margin: 0;
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #e0f7fa; /* Light background, similar to mint green */
+    color: #333;
+    overflow: hidden;
+}
+
+#game-container {
+    /* 冰晶薄荷玻璃边框：半透明白玻璃 + 薄荷外环，像透明饮料杯的杯壁 */
+    border: 3px solid rgba(255, 255, 255, 0.6);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(224, 244, 240, 0.18)), #fffafa;
+    box-shadow:
+        inset 0 2px 8px rgba(255, 255, 255, 0.65),      /* 内侧柔和高光（玻璃厚度） */
+        inset 0 -10px 24px rgba(125, 211, 196, 0.14),   /* 内侧轻微暗部 */
+        0 0 0 3px rgba(160, 225, 210, 0.35),            /* 薄荷冰晶外环 */
+        0 12px 32px rgba(77, 182, 172, 0.2);            /* 柔和光晕 */
+    width: 100%;
+    max-width: 800px; /* Adjust as needed */
+    height: 90vh; /* Make height flexible for mobile */
+    height: min(90vh, 100dvh); /* 手机浏览器动态视口：地址栏收起/展开时防止底部被遮住 */
+    min-height: 400px; /* Minimum height to prevent collapse */
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 杯壁内侧流光：一条缓慢流动的薄荷高光环（柔和不过闪，@supports 兜底） */
+@supports (mask-composite: exclude) or (-webkit-mask-composite: xor) {
+    #game-container::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+        border-radius: inherit;
+        padding: 3px;
+        background: linear-gradient(115deg,
+            rgba(255, 255, 255, 0.1) 20%,
+            rgba(255, 255, 255, 0.75) 38%,
+            rgba(125, 211, 196, 0.55) 50%,
+            rgba(255, 255, 255, 0.75) 62%,
+            rgba(255, 255, 255, 0.1) 80%);
+        background-size: 250% 250%;
+        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        mask-composite: exclude;
+        pointer-events: none;
+        animation: frame-flow 8s linear infinite;
+    }
+}
+
+@keyframes frame-flow {
+    from { background-position: 0% 50%; }
+    to   { background-position: 100% 50%; }
+}
+
+.game-screen {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    /* 先写普通居中作兜底，再写 safe 居中：
+       内容放得下时垂直居中；放不下时自动改为顶对齐 + 内部滚动，
+       保证顶部和底部内容都不会被裁掉 */
+    justify-content: center;
+    justify-content: safe center;
+    align-items: center;
+    gap: clamp(8px, 1.5vh, 16px);
+    /* 响应式安全边距：四周留白，底部额外兼容手机安全区（刘海屏/手势条） */
+    padding: clamp(12px, 3vh, 24px) clamp(12px, 4vw, 24px);
+    padding-bottom: max(clamp(12px, 3vh, 24px), env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: #fffafa; /* Milk white */
+    transition: opacity 0.5s ease-in-out;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.game-screen.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+h1 {
+    color: #4db6ac; /* Mint green */
+    font-size: clamp(1.6em, 6vw, 3em); /* 窗口小则字自动缩小 */
+    margin-bottom: clamp(12px, 3vh, 30px);
+    text-align: center;
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+}
+
+h2 {
+    color: #4db6ac; /* Mint green */
+    font-size: clamp(1.2em, 4.5vw, 2em);
+    margin-bottom: clamp(8px, 2vh, 20px);
+    text-align: center;
+}
+
+/* ============================================================
+   薄荷汽水按钮（全局）：透明玻璃杯中的薄荷汽水
+   顶部透亮浅青绿 → 底部加深，液体渐变 + 玻璃反光 + 泡沫气泡
+   由 SodaFX（script.js）注入特效层，本规则只负责杯身材质
+   ============================================================ */
+button {
+    position: relative;
+    z-index: 0; /* 层叠上下文：让 .soda-fx(-1) 垫在背景上、文字下 */
+    color: white;
+    background: linear-gradient(180deg,
+        rgba(219, 247, 241, 0.95) 0%,   /* 冰镇汽水表面：透亮浅青绿 */
+        rgba(158, 224, 211, 0.95) 20%,
+        rgba(105, 198, 184, 0.96) 58%,
+        rgba(72, 176, 165, 0.98) 100%); /* 杯底：颜色加深有层次 */
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 15px;
+    padding: clamp(10px, 1.8vh, 15px) clamp(16px, 4vw, 30px);
+    margin: clamp(4px, 1vh, 10px);
+    font-size: clamp(0.95em, 2.5vw, 1.2em);
+    cursor: pointer;
+    max-width: 100%;
+    transition: filter 0.25s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow:
+        inset 0 2px 2px rgba(255, 255, 255, 0.6),    /* 内侧柔和高光 */
+        inset 0 -4px 7px rgba(38, 105, 96, 0.28),    /* 内侧暗部：液体包裹感 */
+        0 4px 10px rgba(77, 182, 172, 0.32),
+        0 0 0 2px rgba(125, 211, 196, 0.26);         /* 冰晶薄荷外环 */
+    text-shadow: 0 2px 3px rgba(38, 105, 96, 0.45);
+}
+
+button:hover {
+    filter: brightness(1.06) saturate(1.05);
+    transform: translateY(-3px);
+}
+
+/* ============================================================
+   选卡区域（角色 / 衣橱 / 关卡三个界面共用）
+   之前只有衣橱卡片有样式，关卡和角色选卡是裸文本导致界面溢出。
+   现在统一：可换行、自适应间距，窄屏自动缩小不溢出。
+   ============================================================ */
+.character-selection,
+.outfit-selection,
+.level-selection {
+    display: flex;
+    flex-wrap: wrap; /* 窄屏放不下时自动换行 */
+    justify-content: center;
+    align-items: stretch;
+    gap: clamp(10px, 2.5vw, 20px);
+    width: 100%;
+    max-width: 640px;
+}
+
+.character-card,
+.outfit-card,
+.level-card {
+    background-color: #e0f2f7; /* Macaron blue-ish */
+    border: 2px solid var(--glass-border); /* 冰晶薄荷玻璃边框 */
+    border-radius: 15px;
+    padding: clamp(12px, 2vw, 20px);
+    min-width: clamp(96px, 26vw, 130px);  /* 随屏幕宽度缩放，不再写死像素 */
+    min-height: clamp(96px, 16vh, 150px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: clamp(0.95em, 2.5vw, 1.1em);
+    font-weight: bold;
+    color: #555;
+    cursor: pointer;
+    box-sizing: border-box;
+    text-align: center;
+    word-break: break-word;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.75),
+        0 3px 8px rgba(77, 182, 172, 0.22),
+        0 0 0 2px var(--mint-ring);
+}
+
+.character-card:hover,
+.outfit-card:hover,
+.level-card:hover {
+    transform: translateY(-5px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.85),
+        0 10px 20px rgba(77, 182, 172, 0.32),
+        0 0 0 2px rgba(125, 211, 196, 0.45);
+}
+
+.character-card.active,
+.outfit-card.active,
+.level-card.active {
+    border-color: rgba(255, 255, 255, 0.95); /* 选中：白色玻璃边 + 薄荷光晕 */
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        0 0 0 2px rgba(125, 211, 196, 0.5),
+        0 0 16px rgba(77, 182, 172, 0.45);
+    transform: scale(1.05);
+}
+
+/* ============================================================
+   角色衣柜皮肤卡：名称 + 状态徽标纵排（布局仍走 .outfit-card 网格，
+   仅卡片内部排列与状态配色）。锁定卡弱化、不可抬升，点击抖动反馈。
+   ============================================================ */
+.outfit-card {
+    flex-direction: column;
+    gap: 6px;
+}
+
+.outfit-name {
+    font-size: inherit;
+}
+
+.outfit-state {
+    font-size: clamp(0.72em, 2vw, 0.85em);
+    font-weight: bold;
+    color: #b0bec5;
+}
+
+.outfit-state.state-equipped {
+    color: #4db6ac; /* 已装备：薄荷绿 */
+}
+
+.outfit-card.locked {
+    cursor: not-allowed;
+}
+
+/* 锁定卡：不响应抬升/选中反馈（未解锁不可装备） */
+.outfit-card.locked:hover,
+.outfit-card.locked.active {
+    transform: none;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.75),
+        0 3px 8px rgba(77, 182, 172, 0.22),
+        0 0 0 2px var(--mint-ring);
+}
+
+@keyframes outfit-shake {
+    0%, 100% { transform: translateX(0); }
+    25%      { transform: translateX(-5px); }
+    75%      { transform: translateX(5px); }
+}
+
+.outfit-card.shake {
+    animation: outfit-shake 0.3s ease;
+}
+
+/* ============================================================
+   衣柜皮肤系列卡（v34）：2 号 PNG 代表预览 + 选中柔和发光描边
+   - .outfit-preview：统一高度图框，PNG 透明底居中等比显示（contain 不拉伸）
+   - 三卡等宽；点击整卡即装备整个系列
+   - active 发光三色：经典=奶白金 / 薄荷=薄荷绿 / 星糖=淡紫幻彩（同时仅一个）
+   ============================================================ */
+.outfit-selection .outfit-card {
+    flex: 1 1 0;                            /* 三卡等宽 */
+    min-width: clamp(110px, 26vw, 190px);
+    max-width: 210px;
+}
+
+.outfit-preview {
+    width: 100%;
+    height: clamp(72px, 14vh, 118px);       /* 统一图框高度 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.outfit-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;                    /* 居中等比，不拉伸不裁切 */
+    pointer-events: none;                   /* 点击穿透到卡片 */
+    user-select: none;
+}
+
+/* 选中发光描边三色（柔和光晕 + 缓慢呼吸微光） */
+.outfit-card.active[data-outfit="classic"] { --glow: 255, 213, 110; --ring: 255, 224, 138; }
+.outfit-card.active[data-outfit="mint"]    { --glow: 77, 182, 172;  --ring: 125, 211, 196; }
+.outfit-card.active[data-outfit="star"]    { --glow: 179, 136, 255; --ring: 206, 177, 255; }
+
+.outfit-card.active[data-outfit] {
+    border-color: rgba(var(--ring), 0.95);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        0 0 0 2px rgba(var(--ring), 0.55),
+        0 0 16px rgba(var(--glow), 0.45);
+    animation: outfit-glow-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes outfit-glow-breathe {
+    0%, 100% {
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.9),
+            0 0 0 2px rgba(var(--ring), 0.45),
+            0 0 10px rgba(var(--glow), 0.3);
+    }
+    50% {
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.9),
+            0 0 0 2px rgba(var(--ring), 0.65),
+            0 0 22px rgba(var(--glow), 0.6);
+    }
+}
+
+/* ============================================================
+   甜品图鉴界面
+   卡片网格：窄屏自动换行、间距随窗口缩放；
+   未发现的甜品显示"？"与提示文字，不剧透名称与介绍。
+   ============================================================ */
+#dex-progress {
+    color: #4db6ac;
+    font-weight: bold;
+    font-size: clamp(0.95em, 2.5vw, 1.1em);
+    margin: 0;
+}
+
+.dex-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: clamp(10px, 2.5vw, 18px);
+    width: 100%;
+    max-width: 640px;
+}
+
+.dex-card {
+    background-color: #e0f2f7; /* Macaron blue-ish，与选卡风格统一 */
+    border: 2px solid var(--glass-border);
+    border-radius: 15px;
+    padding: clamp(8px, 1.5vw, 14px);
+    width: clamp(124px, 28vw, 150px);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.75),
+        0 3px 8px rgba(77, 182, 172, 0.22),
+        0 0 0 2px var(--mint-ring);
+}
+
+.dex-card.undiscovered {
+    border-style: dashed;
+    opacity: 0.78;
+    background-color: #eef3f5;
+}
+
+.dex-img {
+    position: relative;
+    width: clamp(48px, 10vw, 64px);
+    height: clamp(48px, 10vw, 64px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: clamp(1.4em, 5vw, 2em);
+    font-weight: bold;
+    color: #b0bec5;
+}
+
+.dex-color-dot {
+    position: absolute;
+    width: 70%;
+    height: 70%;
+    border-radius: 50%;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.dex-img img {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    z-index: 1;
+}
+
+.dex-name {
+    font-weight: bold;
+    font-size: clamp(0.9em, 2.5vw, 1.05em);
+    color: #555;
+}
+
+.dex-rarity {
+    font-size: clamp(0.72em, 2vw, 0.82em);
+    font-weight: bold;
+    padding: 2px 10px;
+    border-radius: 999px;
+    color: white;
+}
+
+.dex-rarity.rarity-locked { background-color: #b0bec5; }
+.dex-rarity.rarity-common { background-color: #90a4ae; }
+.dex-rarity.rarity-rare { background-color: #ba68c8; }
+.dex-rarity.rarity-legendary { background-color: #ffb300; }
+
+/* 图鉴收藏数量行（发现+收藏双系统）：已发现卡片显示"收藏：X / 20" */
+.dex-count {
+    font-size: clamp(0.7em, 1.9vw, 0.8em);
+    font-weight: bold;
+    color: #4db6ac; /* 薄荷绿：与整体视觉语言一致 */
+}
+
+.dex-desc {
+    font-size: clamp(0.72em, 2vw, 0.82em);
+    color: #777;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+/* 稀有度分区（普通/稀有/传说区域由 DESSERT_DEX 数据自动生成） */
+.dex-section {
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(6px, 1.2vh, 12px);
+}
+
+.dex-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #4db6ac; /* 普通区：薄荷绿 */
+    font-weight: bold;
+    font-size: clamp(1em, 3vw, 1.2em);
+}
+
+.dex-section-title.rarity-rare { color: #ba68c8; }      /* 稀有区：淡紫 */
+.dex-section-title.rarity-legendary { color: #ffb300; } /* 传说区：金色 */
+
+.dex-section-count {
+    font-size: clamp(0.72em, 2vw, 0.85em);
+    color: #777;
+    background-color: #e8f4f6;
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+
+/* 卡片徽章行：稀有度 + 已发现/未发现 状态 */
+.dex-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dex-status {
+    font-size: clamp(0.72em, 2vw, 0.82em);
+    font-weight: bold;
+    padding: 2px 10px;
+    border-radius: 999px;
+    color: white;
+}
+
+.dex-status.status-found { background-color: #4db6ac; }  /* 已发现：薄荷绿 */
+.dex-status.status-locked { background-color: #b0bec5; } /* 未发现：灰 */
+
+/* Game Play Screen */
+#gameplay-screen {
+    justify-content: flex-start;
+    padding-top: clamp(8px, 2vh, 20px);
+}
+
+#game-canvas {
+    display: block;
+    background-color: #b2ebf2; /* A light, dreamy blue for the game background */
+    border: 2px solid rgba(255, 255, 255, 0.6); /* 冰晶玻璃边框 */
+    border-radius: 10px;
+    box-shadow:
+        0 0 0 3px rgba(125, 211, 196, 0.3),
+        0 4px 12px rgba(77, 182, 172, 0.25);
+    touch-action: none; /* 手机上拖动画布时禁止页面滚动，保证触摸控制生效 */
+}
+
+#game-stats {
+    display: flex;
+    justify-content: space-around;
+    width: min(90%, 600px);
+    font-size: 1.2em;
+    color: #4db6ac;
+    font-weight: bold;
+    order: -1; /* HUD 移到画布上方：避开底部两个技能按钮，手机端也不会被遮挡 */
+}
+
+/* Game Over Screen */
+#game-over-screen p {
+    font-size: clamp(1.1em, 4vw, 1.5em);
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+#final-score {
+    color: #ff8a65;
+    font-weight: bold;
+}
+
+/* Mobile Adaptation (Basic) */
+@media (max-width: 600px) {
+    #game-container {
+        width: 100%;
+        max-width: none;
+        border: none;
+        border-radius: 0;
+        height: 100vh; /* 兜底 */
+        height: 100dvh; /* 手机浏览器动态视口高度 */
+    }
+
+    /* 手机全屏无边框，杯壁流光环一并隐藏 */
+    #game-container::before {
+        display: none;
+    }
+
+    h1 {
+        font-size: clamp(1.5em, 7vw, 2em);
+    }
+
+    h2 {
+        font-size: clamp(1.15em, 5vw, 1.5em);
+    }
+
+    button {
+        padding: 10px 18px;
+        font-size: 1em;
+        min-height: 44px; /* 触摸友好的最小点击高度 */
+    }
+
+    .character-card,
+    .outfit-card,
+    .level-card {
+        min-width: 96px;
+        min-height: 96px;
+        padding: 12px;
+    }
+
+    #game-stats {
+        font-size: 1em;
+        width: 95%;
+    }
+
+    /* 甜品风暴按钮：小屏缩小一号，避免与 HUD / 暂停按钮拥挤 */
+    #virtual-skill2-button {
+        width: 64px;
+        height: 64px;
+        font-size: 0.6em;
+    }
+
+    /* 陪伴倒计时气泡：小屏缩小并贴边，避开 HUD 与风暴按钮 */
+    #beast-timer {
+        width: 44px;
+        height: 44px;
+        top: 8px;
+        right: 8px;
+    }
+}
+
+/* ============================================================
+   全局：hidden 属性优先级最高（防止设置了 display 的元素藏不住）
+   ============================================================ */
+[hidden] { display: none !important; }
+
+/* ============================================================
+   主菜单（Q版幻想风：薄荷绿 + 奶油白 + 浅金，云朵甜品天空城元素）
+   背景素材接口：assets/menu_bg.png 存在时 JS 自动铺满（#menu-bg），
+   未生成前用 CSS 渐变天空 + 漂浮云朵占位，替换素材零代码改动。
+   ============================================================ */
+#main-menu {
+    background: linear-gradient(180deg, #bde8f0 0%, #fdf6ec 100%);
+}
+
+#menu-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.menu-decor {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.cloud {
+    position: absolute;
+    left: -30%;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 999px;
+    filter: blur(1px);
+    animation: cloud-drift 28s linear infinite;
+}
+
+.cloud::before,
+.cloud::after {
+    content: '';
+    position: absolute;
+    background: inherit;
+    border-radius: 50%;
+}
+
+.cloud::before { width: 55%; height: 160%; left: 12%; bottom: 25%; }
+.cloud::after  { width: 40%; height: 120%; right: 14%; bottom: 30%; }
+
+.cloud-1 { width: clamp(70px, 14vw, 120px); height: clamp(20px, 4vw, 32px); top: 12%; animation-duration: 32s; }
+.cloud-2 { width: clamp(50px, 10vw, 90px); height: clamp(16px, 3vw, 26px); top: 32%; animation-delay: -12s; opacity: 0.8; }
+.cloud-3 { width: clamp(60px, 12vw, 100px); height: clamp(18px, 3.4vw, 30px); top: 60%; animation-delay: -22s; opacity: 0.7; }
+.cloud-4 { width: clamp(44px, 9vw, 78px); height: clamp(14px, 2.8vw, 24px); top: 44%; animation-delay: -5s; opacity: 0.75; }
+
+@keyframes cloud-drift {
+    from { left: -30%; }
+    to   { left: 110%; }
+}
+
+/* ===== 远景层次（奶油云朵 + 马卡龙糖霜山丘）=====
+   内联 SVG 整层约 16% 透明度，叠在背景（渐变/素材图）之上、
+   .menu-decor 与 UI 之下（同 z-index 按 DOM 序，不挡按钮和 Logo）；
+   整层极缓横漂（±5px / 7.5s）+ 云朵各自缓慢左右漂浮（4~7px / 5~7.5s），
+   纯 transform 合成器动画，零图片资源 */
+.menu-far {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.menu-far svg {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: clamp(260px, 44vh, 494px); /* 山丘整体高度较首版 +30%，远景更明显 */
+    opacity: 0.25;
+    animation: far-sway 7.5s ease-in-out infinite alternate;
+}
+
+@keyframes far-sway {
+    from { transform: translateX(-5px); }
+    to   { transform: translateX(5px); }
+}
+
+.menu-far .far-cloud { animation: far-cloud-drift 6s ease-in-out infinite alternate; }
+.menu-far .fc2 { animation-duration: 7.5s; animation-delay: -2.5s; }
+.menu-far .fc3 { animation-duration: 5s; animation-delay: -1.2s; }
+
+@keyframes far-cloud-drift {
+    from { transform: translateX(-6px); }
+    to   { transform: translateX(7px); }
+}
+
+/* 云朵景深：远处小云模糊+降不透明度，近景大软云（fc1/fc2）保持清晰 */
+.menu-far .far-cloud.far {
+    filter: blur(2.5px);
+    opacity: 0.75;
+}
+
+/* ============================================================
+   开始页标题 Logo（assets/游戏标题.png，素材原样显示不改图片）
+   Title Screen 定位：Logo 是全页绝对视觉中心（首页最大元素）
+   宽 min(75vw, 620px, calc(100vh - 250px))：
+   - 中小屏 ≈ 75% 屏宽（vw 直取），PC 上限 620px
+   - calc 项只在矮视口介入；高度实在不足时由 .game-screen 自带
+     滚动兜底（优先保证 Logo 够大，不缩水）
+   动画全部走 transform/opacity（合成器直驱，60FPS，手机端流畅）：
+   ① 漂浮 ±3px / 3s   ② 呼吸 scale 100%↔102%（与漂浮同步）
+   ③ 玻璃流光：Alpha Mask（.logo-shine-mask 用 PNG 自身透明通道做遮罩），
+      细长 25° 斜向光带只在图案不透明像素内显示（无矩形痕迹），
+      宽约 Logo 8%、峰值透明度约 22%，每 4.5s 缓慢扫过一次（约 1.1s）
+   ④ 周围 6 颗四角星不规则闪烁（金/奶白随机，缩放 80%~120%）
+   ============================================================ */
+.menu-logo {
+    position: relative;
+    z-index: 1;
+    width: min(75vw, 620px, calc(100vh - 250px));
+    display: flex;
+    justify-content: center;
+    /* Logo 与【开始冒险】视觉间距仅 20~24px：容器 .game-screen 自带 8px 列间距，
+       此处 margin 补偿为 12~16px → 合计 20~24px */
+    margin-bottom: clamp(12px, 2vh, 16px);
+}
+
+/* 漂浮 + 呼吸同步：单个 transform 动画（位移+缩放），不引起重排 */
+.logo-float {
+    position: relative;
+    width: 100%;
+    animation: logo-float-breathe 3s ease-in-out infinite;
+    will-change: transform;
+}
+
+@keyframes logo-float-breathe {
+    0%, 100% { transform: translateY(-3px) scale(1); }
+    50%      { transform: translateY(3px)  scale(1.02); }
+}
+
+/* 裁切层：流光只在 Logo 内部显示，不溢出图片外 */
+.logo-frame {
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-logo-img {
+    display: block;
+    width: 100%;
+    height: auto; /* 等比例缩放，不拉伸 */
+    -webkit-user-drag: none;
+    user-select: none;
+}
+
+/* 玻璃流光遮罩层（Alpha Mask）：用 Logo PNG 自身的透明通道做 mask，
+   光带只在图案（文字+装饰）不透明像素内显示——透明背景区域不透光，
+   彻底杜绝"白色矩形"痕迹。此层静止铺满图片区，保证遮罩坐标与图片
+   精确对齐（光带在层内移动，遮罩不动）。不支持 mask 的老浏览器
+   整体隐藏光带层（宁缺勿矩形）。 */
+.logo-shine-mask {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    -webkit-mask-image: url('assets/游戏标题.png');
+    -webkit-mask-size: 100% 100%;
+    -webkit-mask-position: 0 0;
+    -webkit-mask-repeat: no-repeat;
+    mask-image: url('assets/游戏标题.png');
+    mask-size: 100% 100%;
+    mask-position: 0 0;
+    mask-repeat: no-repeat;
+}
+
+@supports not ((-webkit-mask-image: url('a.png')) or (mask-image: url('a.png'))) {
+    .logo-shine-mask { display: none; }
+}
+
+/* 玻璃流光本体：细长斜向光带（rotate 25°），两端羽化、中央最亮，
+   宽约 Logo 8%，元素透明度峰值约 22%；周期 4.5s，前 ~1.1s 从左上
+   缓慢滑向右下（x/y 同步位移形成斜向轨迹），扫过结束立即归零隐藏、
+   其余时间休眠不留任何痕迹；外层 .logo-shine-mask 的 Alpha Mask
+   保证光带只在图案像素内显示，.logo-frame overflow:hidden 双重兜底 */
+.logo-shine {
+    position: absolute;
+    top: -50%;
+    bottom: -50%;
+    left: 0;
+    width: 8%;
+    pointer-events: none;
+    background: linear-gradient(90deg,
+        rgba(255, 252, 246, 0) 0%,
+        rgba(255, 250, 243, 0.5) 32%,
+        rgba(255, 255, 255, 0.95) 50%,
+        rgba(255, 250, 243, 0.5) 68%,
+        rgba(255, 252, 246, 0) 100%);
+    filter: blur(1.5px);
+    opacity: 0;
+    transform: translate3d(-180%, -10%, 0) rotate(25deg);
+    animation: logo-shine-sweep 4.5s ease-in-out infinite;
+    will-change: transform, opacity;
+}
+
+@keyframes logo-shine-sweep {
+    0%   { transform: translate3d(-180%, -10%, 0) rotate(25deg); opacity: 0; }
+    3%   { opacity: 0.22; }
+    20%  { opacity: 0.22; }
+    24%  { transform: translate3d(1380%, 12%, 0) rotate(25deg); opacity: 0; }
+    100% { transform: translate3d(1380%, 12%, 0) rotate(25deg); opacity: 0; }
+}
+
+/* 四角星细闪：6 颗围绕 Logo 边缘分布（金色/奶白随机，不遮挡标题主体），随机感节奏；
+   Logo 放大后星星尺寸上限同步提高，保持与 Logo 的比例观感 */
+.logo-star {
+    position: absolute;
+    width: clamp(10px, 2.6vw, 18px);
+    height: clamp(10px, 2.6vw, 18px);
+    background: #ffd54f;
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+    opacity: 0.2;
+    transform: scale(0.8);
+    animation: logo-twinkle 2.2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes logo-twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(0.8); }
+    50%      { opacity: 1;   transform: scale(1.2); }
+}
+
+/* 各星位置/大小/颜色/时长/延迟错开 → 不规则触发观感 */
+.logo-star.st1 { top: -6%; left: -4%; animation-duration: 2.1s; animation-delay: 0s; }
+.logo-star.st2 { top: 12%; right: -5%; width: 12px; height: 12px; background: #ffffff; animation-duration: 2.8s; animation-delay: 0.9s; }
+.logo-star.st3 { bottom: -4%; left: 14%; width: 15px; height: 15px; background: #ffe082; animation-duration: 1.9s; animation-delay: 1.4s; }
+.logo-star.st4 { bottom: 10%; right: 6%; animation-duration: 2.5s; animation-delay: 0.4s; }
+.logo-star.st5 { top: 30%; left: -7%; width: 11px; height: 11px; background: #ffffff; animation-duration: 3s; animation-delay: 2s; }
+.logo-star.st6 { top: -8%; right: 18%; width: 14px; height: 14px; background: #fff8e1; animation-duration: 2.4s; animation-delay: 1.1s; }
+
+.menu-buttons {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(8px, 1.4vh, 14px);
+    width: min(100%, 340px);
+}
+
+/* ============================================================
+   薄荷汽水按钮（主菜单版）：药丸杯身 + 液体渐变 + 冰晶外环
+   泡沫/气泡/液面/反光由 SodaFX 注入的 .soda-fx 层呈现
+   ============================================================ */
+.menu-buttons button {
+    position: relative;
+    z-index: 0; /* 层叠上下文：糖霜伪元素与汽水特效层(-1)垫在文字下 */
+    width: 100%;
+    margin: 0;
+    border-radius: 999px;
+    background: linear-gradient(180deg,
+        rgba(219, 247, 241, 0.95) 0%,
+        rgba(158, 224, 211, 0.95) 20%,
+        rgba(105, 198, 184, 0.96) 58%,
+        rgba(72, 176, 165, 0.98) 100%);
+    border: 2px solid rgba(255, 255, 255, 0.65);
+    color: #fff;
+    font-weight: bold;
+    text-shadow: 0 2px 3px rgba(38, 105, 96, 0.5);
+    box-shadow:
+        inset 0 2px 2px rgba(255, 255, 255, 0.6),
+        inset 0 -5px 8px rgba(38, 105, 96, 0.3),
+        0 5px 12px rgba(77, 182, 172, 0.4),
+        0 0 0 2px rgba(125, 211, 196, 0.3);
+    transition: filter 0.25s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.menu-buttons button:hover {
+    filter: brightness(1.06) saturate(1.05);
+    transform: translateY(-3px);
+    box-shadow:
+        inset 0 2px 2px rgba(255, 255, 255, 0.65),
+        inset 0 -5px 8px rgba(38, 105, 96, 0.3),
+        0 8px 16px rgba(77, 182, 172, 0.5),
+        0 0 0 2px rgba(125, 211, 196, 0.4);
+}
+
+/* ===== 第一层：开始冒险（薄荷气泡奶盖饮品：奶盖与汽水融合，无分界线） ===== */
+.menu-primary {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 36px 20px 13px; /* 文字钉在下部汽水区，顶部留给奶盖呼吸 */
+    font-size: clamp(1.2em, 3.6vw, 1.55em);
+    letter-spacing: 2px;
+    /* 一体化饮品渐变：奶盖白 → 融合过渡 → 清透气泡薄荷（低饱和半透明） */
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.96) 0%,
+        rgba(240, 250, 246, 0.93) 16%,
+        rgba(216, 242, 235, 0.9)  32%,
+        rgba(188, 231, 219, 0.9)  48%,
+        rgba(160, 219, 206, 0.92) 68%,
+        rgba(129, 202, 188, 0.94) 100%);
+}
+
+/* 奶盖：顶部柔和流动的奶泡，主体向下渐隐融入汽水；
+   底缘由重叠软边椭圆连成一条不规则波浪（轻微融化下垂感），没有硬分界线 */
+.menu-primary::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: -6px;
+    left: -4px;
+    right: -4px;
+    height: 44%;
+    border-radius: 999px 999px 0 0;
+    background:
+        radial-gradient(18px 12px at 6%  97%,  rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 72%),
+        radial-gradient(13px 9px  at 16% 100%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 72%),
+        radial-gradient(20px 13px at 27% 94%,  rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 72%),
+        radial-gradient(14px 10px at 38% 99%,  rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0) 72%),
+        radial-gradient(19px 12px at 49% 95%,  rgba(255, 255, 255, 0.9),  rgba(255, 255, 255, 0) 72%),
+        radial-gradient(12px 9px  at 59% 100%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 72%),
+        radial-gradient(20px 13px at 70% 94%,  rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 72%),
+        radial-gradient(14px 10px at 81% 99%,  rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 72%),
+        radial-gradient(18px 12px at 92% 96%,  rgba(255, 255, 255, 0.9),  rgba(255, 255, 255, 0) 72%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.75) 55%, rgba(255, 255, 255, 0) 100%);
+    animation: milk-flow 7s ease-in-out infinite alternate;
+}
+
+/* 奶盖之上的细节：少量半透明气泡穿过奶盖边缘 + 两条细微液面波纹
+   （玻璃折射高光由 SodaFX 的 .soda-shine 提供，此处不再堆叠） */
+.menu-primary::after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
+    background:
+        radial-gradient(5px 5px    at 24% 36%, rgba(255, 255, 255, 0.6),  rgba(255, 255, 255, 0) 70%),
+        radial-gradient(3px 3px    at 30% 28%, rgba(255, 255, 255, 0.7),  rgba(255, 255, 255, 0) 70%),
+        radial-gradient(4px 4px    at 63% 30%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%),
+        radial-gradient(5.5px 5.5px at 71% 42%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 70%),
+        radial-gradient(3px 3px    at 78% 34%, rgba(255, 255, 255, 0.6),  rgba(255, 255, 255, 0) 70%),
+        radial-gradient(2px 2px    at 38% 52%, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 70%),
+        radial-gradient(2.5px 2.5px at 86% 56%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 70%),
+        radial-gradient(100% 2px    at 50% 47%, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 78%),
+        radial-gradient(100% 1.5px  at 44% 56%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 78%);
+}
+
+/* 奶盖轻微浮动：像液体表面在呼吸（幅度极小，不影响文字） */
+@keyframes milk-flow {
+    from { transform: translateY(0); }
+    to   { transform: translateY(1.5px); }
+}
+
+/* ===== 第二层：三入口一行 ===== */
+.menu-row {
+    display: flex;
+    gap: clamp(8px, 2vw, 12px);
+    width: 100%;
+}
+
+.menu-row button {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: clamp(0.85em, 2.4vw, 1.02em);
+    padding: clamp(10px, 1.8vh, 14px) 6px;
+    white-space: nowrap;
+}
+
+/* ===== 第三层：设置（中等尺寸居中） ===== */
+.menu-settings {
+    width: auto;
+    font-size: clamp(0.95em, 2.6vw, 1.12em);
+    padding: clamp(10px, 1.8vh, 14px) clamp(22px, 6vw, 42px);
+}
+
+/* ===== 底部：关于、关卡等低优先级入口（奶油白幽灵小按钮） ===== */
+.menu-secondary {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: clamp(6px, 1.5vw, 10px);
+    margin-top: clamp(2px, 0.8vh, 8px);
+}
+
+.menu-secondary button {
+    width: auto;
+    font-size: clamp(0.75em, 2vw, 0.85em);
+    padding: clamp(6px, 1.2vh, 10px) clamp(14px, 3.5vw, 22px);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(224, 244, 240, 0.7));
+    color: #2f8f85;
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    text-shadow: none;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.85),
+        0 3px 8px rgba(77, 182, 172, 0.25),
+        0 0 0 2px rgba(125, 211, 196, 0.25);
+}
+
+.menu-secondary button:hover {
+    filter: brightness(1.03);
+    transform: translateY(-2px);
+}
+
+/* ===== 主菜单装饰：小糖果 / 星星 / 光晕 =====
+   全部在 .menu-decor 内（pointer-events:none），绝不挡按钮点击 */
+.decor-candy {
+    position: absolute;
+    z-index: 0;
+    width: 33px;   /* 较首版 +10%，细节更醒目 */
+    height: 15.4px;
+    border-radius: 9px;
+    background: repeating-linear-gradient(135deg, #ffb3c1 0 6px, #ffd9e2 6px 12px);
+    opacity: 0.85;
+    animation: candy-bob 5s ease-in-out infinite alternate;
+}
+
+.decor-candy::before,
+.decor-candy::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    border: 9px solid transparent;
+    transform: translateY(-50%);
+}
+
+.decor-candy::before { left: -14px; border-right: 12px solid #ffd9e2; border-left: 0; }
+.decor-candy::after  { right: -14px; border-left: 12px solid #ffd9e2; border-right: 0; }
+
+.decor-candy.c1 { top: 20%; left: 11%; }
+.decor-candy.c2 {
+    top: 56%;
+    right: 8%;
+    left: auto;
+    background: repeating-linear-gradient(135deg, #9adccf 0 6px, #d3f2ea 6px 12px);
+    animation-delay: -1.8s;
+}
+.decor-candy.c2::before { border-right-color: #d3f2ea; }
+.decor-candy.c2::after  { border-left-color: #d3f2ea; }
+.decor-candy.c3 {
+    top: 74%;
+    left: 15%;
+    background: repeating-linear-gradient(135deg, #ffe082 0 6px, #fff2c4 6px 12px);
+    animation-delay: -3.2s;
+    transform: scale(0.8);
+}
+.decor-candy.c3::before { border-right-color: #fff2c4; }
+.decor-candy.c3::after  { border-left-color: #fff2c4; }
+
+.decor-star {
+    position: absolute;
+    z-index: 0;
+    width: 16px;
+    height: 16px;
+    background: #ffe082;
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+    animation: star-twinkle 5.4s ease-in-out infinite; /* 缓慢呼吸（4~8s 安静治愈） */
+}
+
+.decor-star.s1 { top: 15%; right: 18%; }
+.decor-star.s2 { top: 38%; left: 6%; width: 11px; height: 11px; background: #ffffff; animation-delay: -1.8s; }
+.decor-star.s3 { top: 66%; right: 21%; width: 13px; height: 13px; background: #ffd54f; animation-delay: -3.6s; }
+.decor-star.s4 { top: 27%; left: 29%; width: 10px; height: 10px; background: #d9f2ea; animation-delay: -4.4s; }
+
+.decor-glow {
+    position: absolute;
+    z-index: 0;
+    border-radius: 50%;
+    filter: blur(6px);
+    pointer-events: none;
+}
+
+.decor-glow.glow-1 {
+    width: 150px;
+    height: 150px;
+    top: 28%;
+    left: 5%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.7), transparent 70%);
+}
+
+/* 右下角糖霜暖光（漫反射质感）：双层椭圆渐变（核心暖光 + 外围漫反射）
+   + 大半径模糊 + 轻微旋转，外层边缘 78% 处即全透明且峰值低 →
+   完全无可辨认的圆形边界，与天空渐变自然融为一体 */
+.decor-glow.glow-2 {
+    width: 300px;
+    height: 190px;
+    top: 58%;
+    right: 1%;
+    background:
+        radial-gradient(ellipse at 42% 46%,
+            rgba(255, 232, 170, 0.30),
+            rgba(255, 236, 190, 0.10) 46%,
+            transparent 72%),
+        radial-gradient(ellipse at 58% 62%,
+            rgba(255, 244, 214, 0.15),
+            transparent 64%);
+    filter: blur(22px);
+    transform: rotate(-14deg);
+    animation: glow-breathe 6.5s ease-in-out infinite alternate;
+}
+
+@keyframes glow-breathe {
+    from { opacity: 0.8; }
+    to   { opacity: 1; }
+}
+
+@keyframes candy-bob {
+    from { transform: translateY(-4px) rotate(-8deg); }
+    to   { transform: translateY(5px) rotate(10deg); }
+}
+
+@keyframes star-twinkle {
+    0%, 100% { opacity: 0.45; transform: scale(0.92) rotate(0deg); }
+    50%      { opacity: 0.95; transform: scale(1.06) rotate(8deg); }
+}
+
+/* ============================================================
+   大地兽伙伴信息界面（卡片由数据自动生成，素材缺失退回色点）
+   ============================================================ */
+.beast-intro {
+    color: #777;
+    font-size: clamp(0.85em, 2.4vw, 1em);
+    margin: 0;
+    text-align: center;
+}
+
+#beast-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: clamp(10px, 2.5vw, 18px);
+    width: 100%;
+    max-width: 640px;
+}
+
+.beast-card {
+    background-color: #e0f2f7;
+    border: 2px solid var(--glass-border);
+    border-radius: 15px;
+    padding: clamp(10px, 2vw, 16px);
+    width: clamp(140px, 30vw, 180px);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.75),
+        0 3px 8px rgba(77, 182, 172, 0.22),
+        0 0 0 2px var(--mint-ring);
+}
+
+.beast-img {
+    position: relative;
+    width: clamp(56px, 12vw, 72px);
+    height: clamp(56px, 12vw, 72px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.beast-img img {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    z-index: 1;
+}
+
+.beast-name {
+    font-weight: bold;
+    color: #555;
+}
+
+.beast-desc {
+    font-size: clamp(0.72em, 2vw, 0.82em);
+    color: #777;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+/* ============================================================
+   结算界面（本次得分 / 收集甜品 / 新发现 / 最高分）
+   ============================================================ */
+.result-panel {
+    background-color: #e0f2f7;
+    border: 2px solid var(--glass-border);
+    border-radius: 15px;
+    padding: clamp(12px, 2.5vw, 20px) clamp(16px, 4vw, 28px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4px, 1vh, 8px);
+    width: min(90%, 420px);
+    box-sizing: border-box;
+}
+
+#game-over-screen .result-panel p {
+    margin: 0;
+    font-size: clamp(0.95em, 2.6vw, 1.1em);
+    color: #555;
+    text-align: left;
+}
+
+.result-panel span { font-weight: bold; color: #333; }
+#final-score { color: #ff8a65; font-size: 1.2em; }
+#final-new-discoveries { color: #ba68c8; }
+#final-high-score { color: #ffb300; }
+
+.record-badge {
+    display: inline-block;
+    background-color: #ff8a65;
+    color: white;
+    font-size: 0.8em;
+    border-radius: 999px;
+    padding: 2px 10px;
+    margin-left: 6px;
+    animation: record-pop 0.6s ease;
+}
+
+@keyframes record-pop {
+    0%   { transform: scale(0.4); opacity: 0; }
+    70%  { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ============================================================
+   设置界面（音乐/音效占位开关，localStorage 持久化）
+   ============================================================ */
+.settings-panel {
+    background-color: #e0f2f7;
+    border: 2px solid var(--glass-border);
+    border-radius: 15px;
+    padding: clamp(12px, 2.5vw, 20px);
+    width: min(90%, 360px);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1.5vh, 14px);
+}
+
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    color: #555;
+    font-weight: bold;
+}
+
+.setting-row button {
+    margin: 0;
+    min-width: 88px;
+}
+
+/* 音量滑条行：滑条占中间弹性宽度，右侧固定百分比文字（薄荷主题色） */
+.setting-row.setting-volume span:first-child {
+    flex-shrink: 0;
+}
+.setting-volume input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    max-width: 220px;
+    accent-color: #4db6ac; /* 薄荷绿主题，与全站按钮一致 */
+    cursor: pointer;
+}
+.volume-label {
+    min-width: 44px;
+    text-align: right;
+    font-size: 0.85em;
+    color: #4db6ac;
+    flex-shrink: 0;
+}
+
+.setting-row button.setting-off {
+    background: linear-gradient(180deg, rgba(236, 239, 241, 0.9), rgba(176, 190, 197, 0.95));
+    border-color: rgba(255, 255, 255, 0.45);
+    filter: saturate(0.6);
+}
+
+.settings-hint {
+    color: #aaa;
+    font-size: clamp(0.75em, 2vw, 0.85em);
+    margin: 0;
+    text-align: center;
+}
+
+/* ============================================================
+   游戏内浮层（暂停 / 新手引导）
+   显示时 JS 侧已冻结游戏（isPaused）；z-index 盖过画布与技能按钮
+   ============================================================ */
+.screen-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    background: rgba(224, 242, 247, 0.82);
+    backdrop-filter: blur(2px);
+    justify-content: center;
+    align-items: center;
+    padding: clamp(12px, 3vh, 24px);
+    box-sizing: border-box;
+}
+
+.screen-overlay.show { display: flex; }
+
+.overlay-panel {
+    background-color: #fffafa;
+    border: 2px solid var(--glass-border); /* 冰晶薄荷玻璃边框 */
+    border-radius: 18px;
+    padding: clamp(16px, 3vh, 28px) clamp(18px, 4vw, 34px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(6px, 1.2vh, 12px);
+    max-width: min(92%, 420px);
+    max-height: 92%;
+    overflow-y: auto;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.8),
+        inset 0 -6px 16px rgba(125, 211, 196, 0.12),
+        0 0 0 2px rgba(160, 225, 210, 0.35),
+        0 10px 30px rgba(77, 182, 172, 0.25);
+}
+
+.overlay-panel h2 { margin: 0; }
+
+.tutorial-panel p {
+    margin: 0;
+    color: #555;
+    font-size: clamp(0.85em, 2.4vw, 1em);
+    line-height: 1.6;
+    text-align: center;
+}
+
+/* HUD 暂停按钮：小尺寸，位于画布上方的计分栏内 */
+#pause-button {
+    font-size: clamp(0.8em, 2vw, 0.9em);
+    padding: clamp(4px, 1vh, 8px) clamp(12px, 3vw, 18px);
+    margin: 0;
+    min-height: 0;
+}
+
+/* ============================================================
+   薄荷汽水按钮特效层（SodaFX 由 script.js 注入，纯视觉）
+   .soda-fx 为 z-index:-1：画在按钮渐变背景之上、文字之下，
+   pointer-events:none，不影响任何点击与游戏功能
+   ============================================================ */
+.soda-fx {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* 顶部泡沫层：细密小白点（随机大小/位置由 JS 注入），轻微呼吸 */
+.soda-foam {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 32%;
+    animation: foam-breathe 3.2s ease-in-out infinite alternate;
+}
+
+/* 液面线：奶油波浪 SVG 曲线缓慢平移，像液体在晃动 */
+.soda-surface {
+    position: absolute;
+    top: 24%;
+    left: 0;
+    width: 100%;
+    height: 10px;
+    overflow: hidden;
+}
+
+.soda-surface svg {
+    width: 200%;
+    height: 100%;
+    display: block;
+    animation: soda-wave 7s linear infinite;
+}
+
+/* 气泡：约 9 个，大小/速度/延迟/摇摆由 JS 随机注入，
+   半透明薄荷绿（非纯白），不规则上升 */
+.soda-bubble {
+    position: absolute;
+    bottom: 8%;
+    left: var(--x, 50%);
+    width: var(--s, 5px);
+    height: var(--s, 5px);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%,
+        rgba(255, 255, 255, 0.9),
+        rgba(198, 240, 229, 0.5) 55%,
+        rgba(150, 220, 205, 0.28) 100%);
+    box-shadow: 0 0 2px rgba(255, 255, 255, 0.35);
+    opacity: 0;
+    animation: soda-rise var(--t, 4s) linear var(--delay, 0s) infinite;
+}
+
+/* 玻璃反光：左侧斜向高光，hover 时轻微增强（轻盈梦幻不过分） */
+.soda-shine {
+    position: absolute;
+    top: 6%;
+    bottom: 10%;
+    left: 9%;
+    width: 13%;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.05));
+    transform: skewX(-18deg);
+    opacity: 0.75;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+button:hover .soda-shine {
+    opacity: 1;
+    transform: skewX(-18deg) translateX(3px) scaleY(1.04);
+}
+
+/* 点击波纹：液体受震扩散的一圈光环 */
+.soda-ripple {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+}
+
+/* 按下：短暂放大 1.05 倍 + 波纹扩散，然后自然回弹 */
+button:active {
+    animation: soda-press 0.3s ease;
+}
+
+button:active .soda-ripple {
+    animation: soda-ripple 0.5s ease-out;
+}
+
+@keyframes soda-rise {
+    0%   { transform: translate(0, 0); opacity: 0; }
+    12%  { opacity: var(--o, 0.7); }
+    75%  { opacity: calc(var(--o, 0.7) * 0.8); }
+    100% { transform: translate(var(--sway, 4px), var(--rise, -60px)); opacity: 0; }
+}
+
+@keyframes soda-wave {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+
+@keyframes foam-breathe {
+    from { opacity: 0.75; }
+    to   { opacity: 1; }
+}
+
+@keyframes soda-press {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes soda-ripple {
+    from { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55); opacity: 1; }
+    to   { box-shadow: inset 0 0 0 14px rgba(255, 255, 255, 0); opacity: 0; }
+}
+
+/* ============================================================
+   甜品风暴按钮：游戏中唯一主动技能
+   小巧圆润的"薄荷汽水小圆杯"，半透明低饱和 + 玻璃质感；
+   气泡/泡沫/液面/玻璃高光由 SodaFX 自动注入，按下缩放回弹
+   复用全局 soda-press 动画
+   ============================================================ */
+#virtual-skill2-button {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    padding: 0;
+    margin: 0 auto;
+    font-size: clamp(0.62em, 2vw, 0.75em);
+    line-height: 1.25;
+    white-space: normal;
+    background: linear-gradient(180deg,
+        rgba(232, 249, 244, 0.85) 0%,
+        rgba(184, 230, 219, 0.82) 55%,
+        rgba(146, 208, 195, 0.88) 100%);
+    border: 2px solid rgba(255, 255, 255, 0.65);
+    box-shadow:
+        inset 0 2px 3px rgba(255, 255, 255, 0.7),
+        inset 0 -4px 6px rgba(38, 105, 96, 0.22),
+        0 4px 10px rgba(77, 182, 172, 0.35),
+        0 0 0 2px rgba(125, 211, 196, 0.3);
+}
+
+/* 能量充满：柔和的薄荷流光呼吸 + 白玻璃边提亮（不闪不刺眼） */
+#virtual-skill2-button.storm-ready {
+    border-color: rgba(255, 255, 255, 0.95);
+    animation: storm-ready-glow 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes storm-ready-glow {
+    from {
+        box-shadow:
+            inset 0 2px 3px rgba(255, 255, 255, 0.75),
+            inset 0 -4px 6px rgba(38, 105, 96, 0.22),
+            0 4px 12px rgba(77, 182, 172, 0.4),
+            0 0 10px rgba(160, 235, 220, 0.5),
+            0 0 0 2px rgba(125, 211, 196, 0.45);
+    }
+    to {
+        box-shadow:
+            inset 0 2px 3px rgba(255, 255, 255, 0.8),
+            inset 0 -4px 6px rgba(38, 105, 96, 0.22),
+            0 6px 16px rgba(77, 182, 172, 0.55),
+            0 0 20px rgba(180, 240, 225, 0.75),
+            0 0 0 3px rgba(125, 211, 196, 0.6);
+    }
+}
+
+/* 释放瞬间：容器轻微甜品气息晃动（柔和，无强震屏） */
+#game-container.sweet-surge {
+    animation: sweet-surge 0.45s ease;
+}
+
+@keyframes sweet-surge {
+    0%   { transform: scale(1) translate(0, 0); }
+    30%  { transform: scale(1.012) translate(1px, -1px); }
+    60%  { transform: scale(1.008) translate(-1px, 1px); }
+    100% { transform: scale(1) translate(0, 0); }
+}
+
+/* 受击瞬间：容器短促轻晃（撞到障碍物的反馈，柔和无强震屏） */
+#game-container.hit-shake {
+    animation: hit-shake 0.3s ease;
+}
+
+@keyframes hit-shake {
+    0%   { transform: translate(0, 0); }
+    25%  { transform: translate(-3px, 1px); }
+    50%  { transform: translate(3px, -1px); }
+    75%  { transform: translate(-2px, 0); }
+    100% { transform: translate(0, 0); }
+}
+
+/* ============================================================
+   游戏内提示浮层（.game-toast）：能量就绪 / 图鉴新发现等，
+   薄荷玻璃胶囊样式，从顶部轻轻浮现，自动淡出，不挡操作
+   ============================================================ */
+#storm-ready-toast,
+.game-toast {
+    position: absolute;
+    top: clamp(52px, 9%, 76px);
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: fit-content;
+    max-width: 86%;
+    z-index: 60;
+    padding: clamp(6px, 1.2vh, 10px) clamp(12px, 2.5vw, 18px);
+    border-radius: 999px;
+    font-size: clamp(0.78em, 2.2vw, 0.95em);
+    font-weight: bold;
+    color: #2f6f65;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(240, 252, 248, 0.94), rgba(196, 236, 226, 0.9));
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.8),
+        0 4px 12px rgba(77, 182, 172, 0.3),
+        0 0 0 2px var(--mint-ring);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+#storm-ready-toast.show,
+.game-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 键盘触发甜品风暴时：按钮与鼠标点击一致的按压回弹 */
+#virtual-skill2-button.storm-press {
+    animation: storm-press-pop 0.26s ease;
+}
+
+@keyframes storm-press-pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* 稀有/特殊甜品：画布轻微提亮的短暂闪光（柔和梦幻，不刺眼） */
+canvas.rare-dazzle {
+    animation: rare-dazzle 0.55s ease;
+}
+
+@keyframes rare-dazzle {
+    0%   { filter: brightness(1); }
+    35%  { filter: brightness(1.1) saturate(1.05); }
+    100% { filter: brightness(1); }
+}
+
+/* 甜品风暴魔法时间（5 秒）：画布柔光呼吸，像进入薄荷甜品梦境
+   （放在 rare-dazzle 之后，两者同时存在时本规则优先生效） */
+canvas.mint-magic {
+    animation: mint-magic 1.8s ease-in-out infinite;
+}
+
+@keyframes mint-magic {
+    0%, 100% { filter: brightness(1) saturate(1); }
+    50%      { filter: brightness(1.06) saturate(1.12); }
+}
+
+/* 风暴进行中：按钮切换为薄荷流光（复用就绪呼吸光晕，节奏更快） */
+#virtual-skill2-button.storm-active {
+    animation: storm-ready-glow 1.2s ease-in-out infinite alternate;
+}
+
+/* ============================================================
+   大地兽陪伴倒计时（#beast-timer）：透明薄荷汽水气泡计时器。
+   外圈 = conic-gradient 圆环进度（--p 为剩余百分比），
+   内部 = 半透明玻璃气泡 + 三颗缓缓上浮的小气泡；
+   最后 2 秒 .ending：气泡减少、光效变弱（柔和过渡，无红色无闪烁）。
+   ============================================================ */
+#beast-timer {
+    position: absolute;
+    /* 全面屏安全区：刘海/挖孔在横屏时位于左右侧，计时气泡不贴边不被遮挡 */
+    top: max(clamp(10px, 2.5vh, 18px), env(safe-area-inset-top, 0px));
+    right: max(clamp(12px, 2.5vw, 18px), env(safe-area-inset-right, 0px));
+    width: 54px;
+    height: 54px;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    filter: drop-shadow(0 3px 8px rgba(77, 182, 172, 0.3));
+    transition: filter 0.6s ease, opacity 0.3s ease;
+}
+
+/* 淡出离场：隐藏前先做透明过渡（.bye 由 JS 在 hidden 前添加） */
+#beast-timer.bye {
+    opacity: 0;
+}
+
+/* 内部玻璃气泡体：半透明白 → 薄荷渐变，像一颗悬浮的小汽水泡 */
+#beast-timer::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(196, 236, 226, 0.3));
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* 薄荷圆环进度：--p 从 100 → 0，ring 随陪伴时间流逝变短 */
+.beast-timer-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(rgba(105, 198, 184, 0.92) calc(var(--p, 100) * 1%), rgba(255, 255, 255, 0.32) 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+    transition: opacity 0.6s ease;
+}
+
+/* 圆环内缓缓上浮的小气泡（轻微动画，不做强闪烁） */
+.beast-timer-bubbles i {
+    position: absolute;
+    bottom: 8px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.8);
+    animation: beast-timer-bubble 2.6s ease-in infinite;
+    opacity: 0;
+}
+
+.beast-timer-bubbles i:nth-child(1) { left: 32%; }
+.beast-timer-bubbles i:nth-child(2) { left: 55%; width: 4px; height: 4px; animation-delay: 0.9s; }
+.beast-timer-bubbles i:nth-child(3) { left: 44%; width: 3px; height: 3px; animation-delay: 1.7s; }
+
+@keyframes beast-timer-bubble {
+    0%   { transform: translateY(0) scale(0.7); opacity: 0; }
+    25%  { opacity: 0.8; }
+    100% { transform: translateY(-26px) scale(1); opacity: 0; }
+}
+
+/* 剩余秒数：薄荷深绿，柔和无警示感 */
+.beast-timer-sec {
+    position: relative;
+    z-index: 1;
+    font-size: 1.05em;
+    font-weight: bold;
+    color: #2f6f65;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* 最后 2 秒（.ending）：气泡减少到 1 颗、更慢更淡；圆环与光晕同步减弱 */
+#beast-timer.ending {
+    filter: drop-shadow(0 2px 5px rgba(77, 182, 172, 0.16));
+}
+
+#beast-timer.ending .beast-timer-bubbles i {
+    animation: none;
+    opacity: 0;
+}
+
+#beast-timer.ending .beast-timer-bubbles i:nth-child(1) {
+    animation: beast-timer-bubble-ending 3.6s ease-in infinite;
+}
+
+@keyframes beast-timer-bubble-ending {
+    0%   { transform: translateY(0) scale(0.7); opacity: 0; }
+    25%  { opacity: 0.3; }
+    100% { transform: translateY(-22px) scale(1); opacity: 0; }
+}
+
+#beast-timer.ending .beast-timer-ring {
+    opacity: 0.65;
+}
+
+#beast-timer.ending .beast-timer-sec {
+    color: #7ea8a0;
+}
+
+/* ============================================================
+   手机端操作提示（.touch-only）：默认隐藏，触摸设备由 body.is-touch 显示
+   ============================================================ */
+.touch-only { display: none; }
+
+/* ============================================================
+   关于页面：双页签（游戏介绍 / 制作人员）+ 底部小字
+   沿用全局 .game-screen 列布局与按钮风格，仅补充页签专属样式
+   ============================================================ */
+.about-tabs {
+    display: flex;
+    gap: clamp(8px, 2vw, 14px);
+}
+
+.about-tab {
+    min-width: clamp(120px, 32vw, 168px);
+    padding: clamp(8px, 1.6vh, 12px) clamp(14px, 3vw, 22px);
+    border-radius: 999px;
+    font-size: clamp(0.85em, 2.6vw, 1em);
+    font-weight: bold;
+    color: #6b8a84;
+    background: rgba(255, 255, 255, 0.6);
+    border: 2px solid rgba(77, 182, 172, 0.35);
+    box-shadow: 0 2px 8px rgba(77, 182, 172, 0.12);
+    transition: all 0.25s ease;
+}
+
+/* 页签激活态①：游戏介绍 → 薄荷绿实底 */
+.about-tab.active {
+    color: #ffffff;
+    background: linear-gradient(135deg, #4db6ac, #66bb9e);
+    border-color: rgba(255, 255, 255, 0.75);
+    box-shadow: 0 4px 14px rgba(77, 182, 172, 0.38);
+    transform: translateY(-1px);
+}
+
+/* 页签激活态②：制作人员 → 极光渐变（紫→青，呼应糖晶极光关） */
+.about-tab#about-tab-credits.active {
+    background: linear-gradient(120deg, #9f8ce0, #6fc7d9 55%, #8fe3c8);
+    box-shadow: 0 4px 14px rgba(159, 140, 224, 0.38);
+}
+
+/* 内容面板：默认隐藏，active 显示（切换无跳动感） */
+.about-panel {
+    display: none;
+    width: min(86vw, 520px);
+    min-height: clamp(120px, 20vh, 170px);
+    padding: clamp(14px, 3vh, 24px) clamp(16px, 4vw, 28px);
+    border-radius: 18px;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.62);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 6px 18px rgba(77, 182, 172, 0.14);
+    backdrop-filter: blur(4px);
+}
+
+.about-panel.active { display: block; animation: about-panel-in 0.3s ease; }
+
+@keyframes about-panel-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.about-title {
+    margin: 0 0 clamp(8px, 1.6vh, 14px);
+    color: #4db6ac;
+    font-size: clamp(1.05em, 3.4vw, 1.3em);
+    text-align: center;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.about-text {
+    margin: 0;
+    color: #55716b;
+    font-size: clamp(0.88em, 2.7vw, 1em);
+    line-height: 1.85;
+    text-align: justify;
+}
+
+.about-text strong {
+    color: #3e9e93;
+}
+
+/* 制作人员名单：角色名右对齐一行 + 人名，行间柔和分隔 */
+.credits-list { margin: 0; }
+
+.credits-list p {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: clamp(10px, 3vw, 20px);
+    margin: 0;
+    padding: clamp(7px, 1.4vh, 11px) 2px;
+    font-size: clamp(0.88em, 2.7vw, 1em);
+    border-bottom: 1px dashed rgba(77, 182, 172, 0.28);
+}
+
+.credits-list p:last-child { border-bottom: none; }
+
+.credits-role { color: #7ea8a0; font-weight: bold; }
+
+.credits-name { color: #4d6b65; }
+
+/* 底部小字：居中浅灰彩蛋 */
+.about-footnote {
+    margin: clamp(2px, 1vh, 8px) 0 0;
+    color: #a9bdb8;
+    font-size: clamp(0.76em, 2.3vw, 0.86em);
+    text-align: center;
+    letter-spacing: 0.05em;
+}
+
+body.is-touch .touch-only { display: block; }
+
+/* ============================================================
+   角色选择界面（Q版 Flat Vector · 薄荷绿马卡龙梦幻风）
+   顶部标题/副标题 + 中央糯米团飞船合成展示（上下漂浮）+ 底部三按钮；
+   页面切换淡入淡出复用 .game-screen 的 opacity 过渡
+   ============================================================ */
+#character-selection-screen {
+    background: linear-gradient(180deg, #e8f8f1 0%, #fdfdf7 52%, #d7f0e6 100%);
+}
+
+/* 左上角低调返回箭头（圆形玻璃小按钮） */
+.char-back-arrow {
+    position: absolute;
+    /* 全面屏安全区：不贴边（横屏时避让左右侧刘海/挖孔） */
+    top: max(clamp(10px, 2vh, 18px), env(safe-area-inset-top, 0px));
+    left: max(clamp(10px, 2vw, 18px), env(safe-area-inset-left, 0px));
+    z-index: 5;
+    width: clamp(38px, 9vw, 46px);
+    height: clamp(38px, 9vw, 46px);
+    padding: 0;
+    margin: 0;
+    border-radius: 50%;
+    font-size: clamp(1.2em, 4vw, 1.5em);
+    line-height: 1;
+    color: #2f8f85;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(224, 244, 240, 0.78));
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    text-shadow: none;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.85),
+        0 3px 8px rgba(77, 182, 172, 0.25),
+        0 0 0 2px rgba(125, 211, 196, 0.25);
+}
+
+.char-header {
+    text-align: center;
+    margin-bottom: clamp(2px, 1vh, 10px);
+}
+
+.char-title {
+    color: #2f8f85;
+    font-size: clamp(1.35em, 4.8vw, 2.1em);
+    margin: 0;
+    text-shadow: 0 2px 0 #ffffff, 0 4px 10px rgba(77, 182, 172, 0.32);
+}
+
+.char-subtitle {
+    margin: clamp(2px, 0.8vh, 8px) 0 0;
+    color: #6fb5a8;
+    font-size: clamp(0.85em, 2.6vw, 1.05em);
+    letter-spacing: 2px;
+}
+
+/* 中央 hero：糯米团 + 飞船合成画布，轻微上下漂浮（±6px / 2s 循环） */
+.char-hero {
+    position: relative;
+    width: min(64vw, calc(34vh * 1.2), 330px);
+    aspect-ratio: 6 / 5;
+    animation: hero-float 2s ease-in-out infinite;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.char-hero canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    transform-origin: 50% 60%;
+}
+
+/* 点击 Q 弹：95% → 105% → 100%（JS 加类触发，动画结束自动移除） */
+.char-hero canvas.q-bounce {
+    animation: char-q-bounce 0.45s ease;
+}
+
+@keyframes hero-float {
+    0%, 100% { transform: translateY(-6px); }
+    50%      { transform: translateY(6px); }
+}
+
+@keyframes char-q-bounce {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(0.95); }
+    70%  { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* 点缀：少量星星 + 薄荷光点（纯装饰，pointer-events 不挡点击，不过多特效） */
+.char-sparkle {
+    position: absolute;
+    pointer-events: none;
+    animation: char-twinkle 2.4s ease-in-out infinite;
+}
+
+.char-sparkle.star {
+    width: 14px;
+    height: 14px;
+    background: #ffd54f;
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+
+.char-sparkle.star.s1 { top: 2%; left: 10%; }
+.char-sparkle.star.s2 { top: 16%; right: 4%; width: 10px; height: 10px; background: #ffffff; animation-delay: 0.8s; }
+.char-sparkle.star.s3 { bottom: 18%; left: 2%; width: 12px; height: 12px; background: #ffe082; animation-delay: 1.5s; }
+
+.char-sparkle.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95), rgba(125, 211, 196, 0.6));
+    filter: blur(1px);
+}
+
+.char-sparkle.dot.d1 { top: 6%; right: 22%; animation-delay: 0.4s; }
+.char-sparkle.dot.d2 { bottom: 4%; right: 12%; animation-delay: 1.1s; }
+
+@keyframes char-twinkle {
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50%      { opacity: 1; transform: scale(1.12); }
+}
+
+.char-name {
+    margin: clamp(2px, 0.8vh, 8px) 0 0;
+    color: #4db6ac;
+    font-weight: bold;
+    font-size: clamp(0.9em, 2.6vw, 1.05em);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* 底部按钮区：确认角色（主按钮，点击 → 关卡选择） */
+.char-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: min(100%, 300px);
+}
+
+.char-actions :where(button) {
+    width: 100%;
+    margin: 0;
+    border-radius: 999px;
+    font-weight: bold;
+}
+
+.char-primary {
+    font-size: clamp(1.05em, 3.2vw, 1.3em);
+    letter-spacing: 3px;
+    padding: clamp(12px, 2.2vh, 18px) 20px;
+}
+
+/* ============================================================
+   关卡选择卡片：封面图 + 名称（点击卡片直接开始游戏）
+   关卡1 = 第一关背景作封面「薄荷甜品花园」；
+   关卡2 = 占位「即将开放」，assets/level2_bg.png 放入后自动显示
+   ============================================================ */
+.level-selection .level-card {
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: clamp(6px, 1.2vh, 10px);
+    padding: clamp(8px, 1.6vw, 12px);
+    width: clamp(150px, 40vw, 250px);
+    min-height: 0;
+}
+
+.level-cover {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(180deg, #d8f3ea, #f7fcf4);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.65);
+}
+
+.level-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* 封面按比例裁切填满，不变形、不产生拼接 */
+    display: block;
+}
+
+.level-cover-soon .level-soon-text {
+    color: #8fb8ae;
+    font-size: clamp(0.85em, 2.4vw, 1em);
+    letter-spacing: 3px;
+    font-weight: bold;
+}
+
+.level-name {
+    text-align: center;
+    font-size: clamp(0.9em, 2.4vw, 1.05em);
+    color: #555;
+}
+
+/* 未开放关卡：半透明 + 不给悬停反馈 */
+.level-card.locked {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
+
+.level-card.locked:hover {
+    transform: none;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.75),
+        0 3px 8px rgba(77, 182, 172, 0.22),
+        0 0 0 2px var(--mint-ring);
+}
+
+/* ============================================================
+   移动端横屏适配（仅触屏手机/平板，body.is-touch 由 JS 添加；
+   PC 端不带该类，以下规则全部不生效，桌面端零影响）
+   ============================================================ */
+
+/* 触屏设备：全屏无边框（横竖屏都生效，横屏时不再套 PC 的 800px 杯壁外框） */
+body.is-touch #game-container {
+    width: 100%;
+    max-width: none;
+    border: none;
+    border-radius: 0;
+    height: 100vh; /* 兜底 */
+    height: 100dvh; /* 手机浏览器动态视口高度 */
+}
+
+/* 全屏时隐藏 PC 杯壁流光环（与窄屏媒体查询同款处理） */
+body.is-touch #game-container::before {
+    display: none;
+}
+
+/* 触屏设备安全区：全面屏刘海/挖孔/手势条不遮挡内容。
+   横屏时刘海在左右侧 → 补左右边距；竖屏时在顶部 → 补顶边距。
+   （底部边距基础规则已带 env(safe-area-inset-bottom)，无需重复） */
+body.is-touch .game-screen {
+    padding-left: max(clamp(12px, 4vw, 24px), env(safe-area-inset-left, 0px));
+    padding-right: max(clamp(12px, 4vw, 24px), env(safe-area-inset-right, 0px));
+    padding-top: max(clamp(12px, 3vh, 24px), env(safe-area-inset-top, 0px));
+}
+
+/* 触屏横屏：压缩主菜单 Logo 宽度上限（矮视口下 100vh-250px 太小），
+   保证 Logo 与按钮组都完整显示、不裁切不变形 */
+@media (orientation: landscape) {
+    body.is-touch .menu-logo {
+        width: min(58vw, 520px, calc(100vh - 185px));
+    }
+    body.is-touch .menu-primary {
+        padding: 26px 20px 12px;
+    }
+}
+
+/* ============================================================
+   移动端强制横屏提示层（#rotate-overlay）
+   显示条件 = body.is-mobile（JS 判定手机/平板）+ 竖屏媒体查询；
+   PC 端无 is-mobile 类，永远不显示。纯 CSS 驱动显隐：
+   竖屏立刻盖住游戏，横屏立刻消失并继续游戏（对局由 JS 自动暂停/恢复）
+   ============================================================ */
+#rotate-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(14px, 3vh, 22px);
+    text-align: center;
+    /* 提示文案同样避让安全区，不贴边 */
+    padding: max(20px, env(safe-area-inset-top, 0px))
+             max(20px, env(safe-area-inset-right, 0px))
+             max(20px, env(safe-area-inset-bottom, 0px))
+             max(20px, env(safe-area-inset-left, 0px));
+    background: linear-gradient(180deg, #bde8f0 0%, #fdf6ec 100%);
+    color: #2f8f85;
+}
+
+@media (orientation: portrait) {
+    body.is-mobile #rotate-overlay { display: flex; }
+}
+
+/* 旋转手机小图标：CSS 绘制的圆角手机轮廓，往复旋转 0°↔90° 示意横屏 */
+.rotate-phone {
+    position: relative;
+    width: 44px;
+    height: 76px;
+    border: 3px solid #4db6ac;
+    border-radius: 12px;
+    opacity: 0.9;
+    animation: rotate-phone-turn 2.4s ease-in-out infinite;
+}
+
+/* 手机听筒细节 */
+.rotate-phone span {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 14px;
+    height: 3px;
+    margin-left: -7px;
+    border-radius: 2px;
+    background: #4db6ac;
+    opacity: 0.7;
+}
+
+@keyframes rotate-phone-turn {
+    0%, 25%  { transform: rotate(0deg); }
+    55%, 80% { transform: rotate(90deg); }
+    100%     { transform: rotate(0deg); }
+}
+
+#rotate-overlay h2 {
+    margin: 0;
+    color: #2f8f85;
+    text-shadow: 0 2px 0 rgba(255, 255, 255, 0.8);
+}
+
+#rotate-overlay .rotate-tip {
+    margin: 0;
+    color: #6b8a84;
+    font-size: clamp(0.9em, 3.5vw, 1.05em);
+    letter-spacing: 1px;
+}
+
+/* ============================================================
+   移动端虚拟方向键（#virtual-dpad）：左下角十字键
+   半透明奶白玻璃风（与全局冰晶薄荷玻璃语言一致）；
+   仅移动端由 JS 创建，PC 端无此元素。z-index 低于暂停/引导浮层(30)，
+   浮层出现时方向键被盖住不可误触；位置避让安全区不贴边。
+   ============================================================ */
+#virtual-dpad {
+    position: absolute;
+    left: max(14px, env(safe-area-inset-left, 0px));
+    bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    grid-template-areas:
+        '. up .'
+        'left mid right'
+        '. down .';
+    gap: 6px;
+    pointer-events: none; /* 容器不挡画布拖动，仅按键本身可点 */
+}
+
+#virtual-dpad .dpad-btn {
+    pointer-events: auto; /* 仅按键本身可点，容器已设 none 不挡画布拖动 */
+}
+
+.dpad-btn {
+    width: clamp(48px, 7.2vh, 58px);
+    height: clamp(48px, 7.2vh, 58px);
+    padding: 0;
+    margin: 0;
+    border-radius: 16px;
+    font-size: clamp(18px, 3.4vh, 24px);
+    line-height: 1;
+    font-weight: bold;
+    color: #2f8f85;
+    text-shadow: none;
+    /* 半透明奶白玻璃：奶白渐变 + 白玻璃边 + 薄荷外环（同 .char-back-arrow 语言） */
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(224, 244, 240, 0.5));
+    border: 2px solid rgba(255, 255, 255, 0.72);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.85),
+        0 3px 8px rgba(77, 182, 172, 0.25),
+        0 0 0 2px rgba(125, 211, 196, 0.24);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 0.85;
+    cursor: pointer;
+    touch-action: none;               /* 长按/拖动不触发页面滚动缩放 */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;      /* iOS 长按不呼出菜单 */
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* 按下反馈：轻微下压 + 提亮（长按期间保持，松开自动恢复） */
+.dpad-btn:active { animation: none; } /* 屏蔽全局汽水按压动画，反馈由 .pressed 承担 */
+.dpad-btn.pressed {
+    transform: scale(0.9);
+    filter: brightness(1.1) saturate(1.08);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(190, 232, 220, 0.68));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        0 1px 4px rgba(77, 182, 172, 0.3),
+        0 0 0 2px rgba(125, 211, 196, 0.42);
+}
+
+/* PC 窄窗口兜底：媒体查询触发的窄屏样式不应让 #virtual-dpad 误显示
+   （元素本身只在移动端由 JS 创建，这里仅防御性隐藏规则，正常不生效） */
+body:not(.is-mobile) #virtual-dpad { display: none; }

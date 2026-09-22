@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <!-- viewport-fit=cover：全面屏留出 Safe Area（配合 CSS env(safe-area-inset-*)）；
+         maximum-scale=1：游戏中禁止双击/捏合缩放，保证触摸操控稳定 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>糯米团的甜品飞行日</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- 游戏内容将在此处动态加载 -->
+        <div id="main-menu" class="game-screen active">
+            <!-- 主菜单背景素材接口：assets/menu_bg.png 存在时自动铺满显示（JS 控制），
+                 未生成前保持 CSS 渐变天空 + 漂浮云朵占位，替换素材零代码改动 -->
+            <img id="menu-bg" alt="" hidden>
+            <!-- 远景层次：奶油云朵 + 马卡龙糖霜山丘（内联 SVG 整层约 25% 透明度，
+                 叠在背景之上、装饰与 UI 之下，纯矢量零图片资源，山丘缓慢漂移。
+                 云朵带景深：fc1/fc2 = 左右近景大软云（清晰），fc3 = 远处小云（模糊） -->
+            <div class="menu-far" aria-hidden="true">
+                <svg viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice">
+                    <path d="M0 305 Q 170 225 370 272 T 740 262 T 1120 282 T 1440 252 L1440 420 L0 420 Z" fill="#b7e3d2"/>
+                    <path d="M0 345 Q 240 285 490 325 T 980 322 T 1440 302 L1440 420 L0 420 Z" fill="#fdf6e8"/>
+                    <path d="M0 388 Q 300 334 630 368 T 1230 362 T 1440 352 L1440 420 L0 420 Z" fill="#ffd9e2"/>
+                    <g class="far-cloud fc1" fill="#ffffff">
+                        <circle cx="186" cy="144" r="34"/><circle cx="238" cy="126" r="46"/><circle cx="292" cy="146" r="29"/>
+                        <rect x="160" y="140" width="170" height="34" rx="17"/>
+                    </g>
+                    <g class="far-cloud fc2" fill="#ffffff">
+                        <circle cx="1014" cy="98" r="24"/><circle cx="1050" cy="84" r="32"/><circle cx="1090" cy="100" r="20"/>
+                        <rect x="994" y="94" width="122" height="26" rx="13"/>
+                    </g>
+                    <g class="far-cloud far fc3" fill="#ffffff">
+                        <circle cx="622" cy="197" r="14"/><circle cx="644" cy="190" r="19"/><circle cx="668" cy="198" r="12"/>
+                        <rect x="608" y="197" width="72" height="15" rx="8"/>
+                    </g>
+                </svg>
+            </div>
+            <div class="menu-decor" aria-hidden="true">
+                <div class="cloud cloud-1"></div>
+                <div class="cloud cloud-2"></div>
+                <div class="cloud cloud-3"></div>
+                <div class="cloud cloud-4"></div>
+                <div class="decor-glow glow-1"></div>
+                <div class="decor-glow glow-2"></div>
+                <div class="decor-candy c1"></div>
+                <div class="decor-candy c2"></div>
+                <div class="decor-candy c3"></div>
+                <div class="decor-star s1"></div>
+                <div class="decor-star s2"></div>
+                <div class="decor-star s3"></div>
+                <div class="decor-star s4"></div>
+            </div>
+            <!-- 游戏标题 Logo：assets/游戏标题.png（素材原样显示，不改图片不用字体渲染）。
+                 .menu-logo 定宽居中 > .logo-float 漂浮+呼吸 > .logo-frame 裁切层 > img
+                 + .logo-shine-mask（用 PNG 自身 alpha 做 mask，光带只在图案内显示）
+                 > .logo-shine（25° 斜向光带，在其中移动）；.logo-star 四角星围绕闪烁 -->
+            <div class="menu-logo" role="img" aria-label="糯米团的甜品飞行日">
+                <div class="logo-float">
+                    <div class="logo-frame">
+                        <img class="menu-logo-img" src="assets/游戏标题.png" alt="糯米团的甜品飞行日">
+                        <div class="logo-shine-mask" aria-hidden="true">
+                            <span class="logo-shine"></span>
+                        </div>
+                    </div>
+                    <span class="logo-star st1" aria-hidden="true"></span>
+                    <span class="logo-star st2" aria-hidden="true"></span>
+                    <span class="logo-star st3" aria-hidden="true"></span>
+                    <span class="logo-star st4" aria-hidden="true"></span>
+                    <span class="logo-star st5" aria-hidden="true"></span>
+                    <span class="logo-star st6" aria-hidden="true"></span>
+                </div>
+            </div>
+            <div class="menu-buttons">
+                <button id="start-button" class="menu-primary">开始冒险</button>
+                <div class="menu-row">
+                    <button id="wardrobe-button">角色衣柜</button>
+                    <button id="dex-button">甜品图鉴</button>
+                    <button id="beast-button">甜品玩偶</button>
+                </div>
+                <button id="settings-button" class="menu-settings">设置</button>
+                <div class="menu-secondary">
+                    <button id="about-button">关于</button>
+                    <button id="level-button">关卡</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="character-selection-screen" class="game-screen">
+            <!-- 左上角低调返回箭头：回主菜单 -->
+            <button id="char-back-arrow" class="char-back-arrow" aria-label="返回主菜单">‹</button>
+
+            <!-- 顶部：标题 + 副标题 -->
+            <header class="char-header">
+                <h2 class="char-title">糯米团的甜品飞行日</h2>
+                <p class="char-subtitle">选择你的飞行伙伴</p>
+            </header>
+
+            <!-- 中央视觉中心：糯米团 + 飞船合成画布（JS 绘制，点击 Q 弹，CSS 漂浮），
+                 周围点缀少量星星与薄荷光点（.char-sparkle，纯装饰不挡点击） -->
+            <div id="char-hero" class="char-hero">
+                <canvas id="char-hero-canvas" width="360" height="300"></canvas>
+                <span class="char-sparkle star s1" aria-hidden="true"></span>
+                <span class="char-sparkle star s2" aria-hidden="true"></span>
+                <span class="char-sparkle star s3" aria-hidden="true"></span>
+                <span class="char-sparkle dot d1" aria-hidden="true"></span>
+                <span class="char-sparkle dot d2" aria-hidden="true"></span>
+            </div>
+            <p class="char-name">糯米团 · 甜品飞船</p>
+
+            <!-- 底部：确认角色（主按钮）→ 关卡选择 -->
+            <div class="char-actions">
+                <button id="confirm-character-button" class="char-primary">确认角色</button>
+            </div>
+        </div>
+
+        <div id="outfit-selection-screen" class="game-screen">
+            <h2>选择皮肤系列</h2>
+            <!-- 衣柜首页：3 个系列分类卡（不是 9 张皮肤）。
+                 每卡用该系列 2 号 PNG 作代表预览（透明底居中等比显示），
+                 点击分类即装备整个系列；1/2/3 号 PNG 在游戏内自动组成嘴型动画 -->
+            <div class="outfit-selection">
+                <div class="outfit-card active" data-outfit="classic">
+                    <div class="outfit-preview">
+                        <img src="assets/经典糯米团2.png" alt="经典糯米团预览" draggable="false">
+                    </div>
+                    <span class="outfit-name">经典糯米团</span>
+                    <span class="outfit-state state-equipped">已装备</span>
+                </div>
+                <div class="outfit-card locked" data-outfit="mint">
+                    <div class="outfit-preview">
+                        <img src="assets/沁凉薄荷2.png" alt="沁凉薄荷预览" draggable="false">
+                    </div>
+                    <span class="outfit-name">沁凉薄荷</span>
+                    <span class="outfit-state state-locked">🔒 未解锁</span>
+                </div>
+                <div class="outfit-card locked" data-outfit="star">
+                    <div class="outfit-preview">
+                        <img src="assets/幻彩星糖2.png" alt="幻彩星糖预览" draggable="false">
+                    </div>
+                    <span class="outfit-name">幻彩星糖</span>
+                    <span class="outfit-state state-locked">🔒 未解锁</span>
+                </div>
+            </div>
+            <button id="confirm-outfit-button">完成换装</button>
+            <button id="back-to-main-menu-from-outfit-selection">返回</button>
+            <p class="settings-hint">点击卡片即装备整个皮肤系列；未解锁系列收集对应甜品达标后自动解锁</p>
+        </div>
+
+        <div id="level-selection-screen" class="game-screen">
+            <h2>选择关卡</h2>
+            <!-- 关卡卡片由 JS 按 LEVEL_META 配置统一渲染：封面+名称全部走图片资源读取，
+                 封面加载失败 → 显示「即将开放」并锁定（新增关卡只需在 LEVEL_META 加一行） -->
+            <div class="level-selection"></div>
+            <button id="back-to-main-menu-from-level-selection">返回</button>
+        </div>
+
+        <div id="dessert-dex-screen" class="game-screen">
+            <h2>甜品图鉴</h2>
+            <p id="dex-progress"></p>
+            <div id="dex-sections"></div>
+            <button id="back-to-main-menu-from-dex">返回</button>
+        </div>
+
+        <div id="beast-screen" class="game-screen">
+            <h2>甜品玩偶伙伴</h2>
+            <p class="beast-intro">在关卡中收集三只甜品玩偶，它会跟随你 5 秒并提供辅助效果；期间吃到新的玩偶会立即替换并重新计时</p>
+            <div id="beast-cards"></div>
+            <button id="back-to-main-menu-from-beast">返回</button>
+        </div>
+
+        <div id="about-screen" class="game-screen">
+            <h2>关于</h2>
+            <!-- 双页签：游戏介绍（薄荷绿）/ 制作人员（极光渐变），切换由 JS 控制 -->
+            <div class="about-tabs">
+                <button id="about-tab-intro" class="about-tab active">🌿 游戏介绍</button>
+                <button id="about-tab-credits" class="about-tab">❄️ 制作人员</button>
+            </div>
+            <!-- 页签一：游戏介绍 -->
+            <div id="about-panel-intro" class="about-panel active">
+                <h3 class="about-title">《糯米团的甜品飞行日》</h3>
+                <p class="about-text">这是一款 2D 治愈休闲飞行小游戏。操控糯米团穿越 <strong>薄荷花园</strong> 与 <strong>极光冰境</strong> 两大甜品世界，收集甜品、解锁皮肤，在轻松梦幻的天空中开启属于你的飞行冒险。</p>
+            </div>
+            <!-- 页签二：制作人员 -->
+            <div id="about-panel-credits" class="about-panel">
+                <div class="credits-list">
+                    <p><span class="credits-role">制作人</span><span class="credits-name">MJZ</span></p>
+                    <p><span class="credits-role">游戏策划</span><span class="credits-name">MJZ</span></p>
+                    <p><span class="credits-role">美术设计</span><span class="credits-name">MJZ × AI</span></p>
+                    <p><span class="credits-role">程序开发</span><span class="credits-name">MJZ × AI</span></p>
+                    <p><span class="credits-role">游戏版本</span><span class="credits-name">Ver.1.0「初夏启程」</span></p>
+                </div>
+            </div>
+            <p class="about-footnote">下一片云，会藏着什么甜品呢？ ☁️🍬</p>
+            <button id="back-to-main-menu-from-about">返回</button>
+        </div>
+
+        <div id="gameplay-screen" class="game-screen">
+            <!-- 游戏进行中的内容，例如canvas -->
+            <canvas id="game-canvas"></canvas>
+            <div id="game-stats">
+                <p>Score: <span id="score">0</span></p>
+                <p>Lives: <span id="lives">3</span></p>
+                <button id="pause-button">暂停</button>
+            </div>
+            <!-- 甜品玩偶陪伴倒计时：薄荷汽水气泡计时器（圆环进度 + 剩余秒数），
+                 伙伴被收集时显示、离场时平滑隐藏；最后 2 秒进入柔和渐弱态 -->
+            <div id="beast-timer" hidden>
+                <div class="beast-timer-ring"></div>
+                <div class="beast-timer-bubbles" aria-hidden="true"><i></i><i></i><i></i></div>
+                <span class="beast-timer-sec">5</span>
+            </div>
+            <!-- 暂停浮层：显示期间游戏已冻结（玩家/障碍/甜品生成全部停止） -->
+            <div id="pause-overlay" class="screen-overlay">
+                <div class="overlay-panel">
+                    <h2>暂停中</h2>
+                    <button id="resume-button">继续游戏</button>
+                    <button id="restart-from-pause">重新开始</button>
+                    <button id="home-from-pause">返回主菜单</button>
+                </div>
+            </div>
+            <!-- 新手引导：第一次进入游戏时显示一次（localStorage 记录是否看过） -->
+            <div id="tutorial-overlay" class="screen-overlay">
+                <div class="overlay-panel tutorial-panel">
+                    <h2>欢迎来到甜品飞行日！</h2>
+                    <p>使用方向键（或 WASD / 拖动画布）控制飞船移动</p>
+                    <p class="touch-only">手机端：拖动画布或按住左下角方向键移动，点击底部按钮释放甜品风暴</p>
+                    <p>收集甜品获得分数，图鉴会记录你的发现</p>
+                    <p>能量积满后按 Space 键（或点击按钮）释放甜品风暴</p>
+                    <p>甜品玩偶会帮助你：蓝莓布丁团加分、芋泥麻薯团护盾、抹茶布丁团吸甜品（每次陪伴 5 秒）</p>
+                    <button id="tutorial-dismiss">知道了，开始冒险！</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-over-screen" class="game-screen">
+            <h2>游戏结束</h2>
+            <div class="result-panel">
+                <p>本次得分: <span id="final-score">0</span></p>
+                <p>收集甜品: <span id="final-desserts">0</span> 个</p>
+                <p>新发现甜品: <span id="final-new-discoveries">无</span></p>
+                <p>最高分: <span id="final-high-score">0</span><span id="new-record" class="record-badge" hidden>新纪录!</span></p>
+            </div>
+            <button id="retry-button">再次冒险</button>
+            <button id="home-button">返回主菜单</button>
+        </div>
+
+        <div id="settings-screen" class="game-screen">
+            <h2>设置</h2>
+            <div class="settings-panel">
+                <div class="setting-row">
+                    <span>音乐</span>
+                    <button id="music-toggle">开启</button>
+                </div>
+                <div class="setting-row">
+                    <span>音效</span>
+                    <button id="sound-toggle">开启</button>
+                </div>
+                <div class="setting-row setting-volume">
+                    <span>BGM 音量</span>
+                    <input type="range" id="bgm-volume" min="0" max="100" step="1" value="90" aria-label="BGM 音量">
+                    <span id="bgm-volume-label" class="volume-label">90%</span>
+                </div>
+                <div class="setting-row setting-volume">
+                    <span>音效音量</span>
+                    <input type="range" id="sfx-volume" min="0" max="100" step="1" value="90" aria-label="音效音量">
+                    <span id="sfx-volume-label" class="volume-label">90%</span>
+                </div>
+                <div class="setting-row">
+                    <span>本地存档</span>
+                    <button id="clear-save-button">清除本地存档</button>
+                </div>
+                <p class="settings-hint">音量与开关会自动保存到本地，下次打开自动恢复</p>
+            </div>
+            <button id="back-to-main-menu-from-settings">返回</button>
+        </div>
+
+        <div id="cg-screen" class="game-screen">
+            <h2>游戏完成！</h2>
+            <p>精彩的CG动画即将播放...</p>
+            <button id="back-to-main-menu-from-cg">返回主菜单</button>
+        </div>
+    </div>
+
+    <!-- 移动端强制横屏提示层：仅触屏手机在竖屏时由 CSS 显示（body.is-mobile + 竖屏媒体查询），
+         PC 端永远不显示。转回横屏后本层自动隐藏，游戏立即继续（竖屏期间自动暂停）。 -->
+    <div id="rotate-overlay" aria-hidden="true">
+        <div class="rotate-phone" aria-hidden="true"><span></span></div>
+        <h2>请横屏体验</h2>
+        <p class="rotate-tip">将手机横过来，开启甜品飞行之旅</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
