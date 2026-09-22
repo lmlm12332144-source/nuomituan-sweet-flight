@@ -24,15 +24,19 @@ const IS_MOBILE = (() => {
 })();
 
 // ============================================================
-// 移动端沉浸式全屏（第三轮）：必须在用户点击手势内同步调用。
+// 移动端沉浸式全屏（第三/四轮）：绑定在主菜单「开始冒险」按钮的
+// click 处理函数第一条语句——浏览器要求全屏请求发生在用户手势的
+// 同步调用链内（不能 setTimeout/await 延迟，否则手势失效被拒绝）。
 // Android 系浏览器（Chrome/Edge/主流国产内核）支持 Fullscreen API +
 // screen.orientation.lock：成功后隐藏地址栏/工具栏并锁定横屏，
 // 游戏真正占满整块屏幕、进入沉浸模式。
-// iOS Safari / 微信 iOS（WKWebView）不支持全屏 API：这里全部静默降级
-// （不报错、无副作用），继续沿用现有的 --app-height + 竖屏提示方案。
+// 微信 iOS（WKWebView）/ iOS Safari 不支持全屏 API：能力检测不通过或
+// Promise 被拒时全部静默降级（不报错、无副作用），继续沿用现有的
+// --app-height + 横屏压缩布局方案，游戏照常运行。
 // 全屏切换会触发 window resize → 方向状态机自动更新 --app-height 并
 // resizeCanvas，画布无需额外处理即占满新的可用区域。
-// 电脑端直接 return，行为零变化。
+// 仅在「开始冒险」请求一次：进入关卡/重试只沿用已有全屏状态，
+// 用户主动退出全屏后不反复强制重进。电脑端直接 return，行为零变化。
 // ============================================================
 function requestImmersive() {
     if (!IS_MOBILE) return; // 电脑端完全不做任何事
@@ -56,6 +60,27 @@ function requestImmersive() {
         }
     } catch (e) { /* 忽略 */ }
 }
+
+// ============================================================
+// 手机端难度平衡（仅 IS_MOBILE 生效；PC 端全部取右列原值，零变化）：
+// 触屏精度低于键盘 + 手机画布更矮（64px 障碍占屏比例更大），按以下幅度
+// 把手机触控手感向电脑端靠拢。不改玩法/障碍种类/概率/分数/甜品风暴：
+//   moveSpeed    玩家移速倍率       0.825 / 1 —— 真机测 5.5 过快易过头，
+//                                                 在 1.1 基础上再 ×0.75 → 4.125
+//   obstSpeed    障碍水平速度倍率   0.9 / 1   —— 障碍整体慢 10%，更好读轨迹
+//   tornadoSpeed 风暴云(龙卷风)追加 0.8 / 1   —— 真机测仍偏快，在 0.9 基础上
+//                                                 再 ×0.8（仅风暴云，其他障碍不变）
+//   spawnGap     生成安全间距 px    26 / 16   —— 矮屏上减少几乎贴脸的生成组合
+//   collectPad   甜品判定外扩 px     8 / 0    —— 只加收集判定，视觉大小不变
+//   obstHitbox   障碍碰撞框边长比  0.9 / 1   —— 每边内缩 5%，不明显穿模
+// ============================================================
+const MOBILE_DIFF = IS_MOBILE ? {
+    moveSpeed: 0.825, obstSpeed: 0.9, tornadoSpeed: 0.8,
+    spawnGap: 26, collectPad: 8, obstHitbox: 0.9
+} : {
+    moveSpeed: 1, obstSpeed: 1, tornadoSpeed: 1,
+    spawnGap: 16, collectPad: 0, obstHitbox: 1
+};
 
 // ============================================================
 // 角色衣柜皮肤配置（全局常量，衣橱 UI 与游戏绘制共用）：
@@ -190,6 +215,10 @@ const GameManager = (() => {
 
         // Main Menu Buttons
         document.getElementById('start-button').addEventListener('click', () => {
+            // 移动端：最早的用户手势（首次点击「开始冒险」）内同步申请沉浸式全屏。
+            // 必须是本处理函数第一条语句（同步执行，不用 setTimeout/await，
+            // 否则浏览器会判定脱离手势链而拒绝全屏）。失败静默降级，不阻塞进角色选择。
+            requestImmersive();
             showScreen('characterSelection');
             console.log("Go to Character Selection");
         });
@@ -300,7 +329,8 @@ const GameManager = (() => {
 
         // Game Over Screen Buttons
         document.getElementById('retry-button').addEventListener('click', () => {
-            requestImmersive(); // 移动端：借这次点击手势申请沉浸式全屏（非移动端无操作）
+            // 不在此处重复申请全屏：全屏已在「开始冒险」首次点击时请求，
+            // 用户主动退出全屏后不反复强制重进（保持已有状态即可）
             showScreen('gameplay');
             Game.start(); // Restart game logic here
             console.log(`Retry Game with Outfit: ${selectedOutfit}`);
@@ -387,7 +417,8 @@ const GameManager = (() => {
 
             card.addEventListener('click', () => {
                 if (card.classList.contains('locked')) return; // 未开放关卡：忽略点击
-                requestImmersive(); // 移动端：借这次点击手势申请沉浸式全屏（非移动端无操作）
+                // 不在此处重复申请全屏：全屏已在「开始冒险」首次点击时请求，
+                // 进入关卡只是沿用当前全屏状态（用户退出后不强制重进）
                 selectedLevel = meta.level;
                 showScreen('gameplay');
                 Game.start(); // 开始关卡（携带当前装扮与所选关卡）
@@ -515,7 +546,7 @@ const Game = (() => {
         y: 0, // Will be set in init
         width: 40,
         height: 40,
-        speed: 5,
+        speed: 5 * MOBILE_DIFF.moveSpeed, // 手机端 5×0.825=4.125（真机回调后）；PC 保持 5 不变
         dx: 0,
         dy: 0,
         color: '#ff8a65', // Default color, will be replaced by actual character/outfit
@@ -541,15 +572,21 @@ const Game = (() => {
         // 【重要修复】之前 player 上没有这个方法，游戏开始约 1.5 秒后
         // 第一颗甜品出现时会抛 TypeError 导致游戏循环卡死——
         // 表现就是"飞船是静态的、不能动"。
-        collidesWith(other) {
+        collidesWith(other, pad = 0, otherScale = 1) {
             // 玩家=飞船+糯米团合成体：碰撞箱覆盖飞船碟身主体区域
             //（宽 40 保持视觉中心对称；高 36 对应放大后的碟身底部），
             // 透明背景区不产生碰撞
+            // pad（手机端收集容错）：对方判定框四边外扩 pad px，视觉不变；
+            // otherScale（手机端障碍容错）：对方碰撞框边长缩放，中心对齐内缩
             const hitH = 36;
-            return this.x < other.x + other.width &&
-                   this.x + this.width > other.x &&
-                   this.y < other.y + other.height &&
-                   this.y + hitH > other.y;
+            const ow = other.width * otherScale;
+            const oh = other.height * otherScale;
+            const ox = other.x + (other.width - ow) / 2;
+            const oy = other.y + (other.height - oh) / 2;
+            return this.x < ox + ow + pad &&
+                   this.x + this.width > ox - pad &&
+                   this.y < oy + oh + pad &&
+                   this.y + hitH > oy - pad;
         }
     };
 
@@ -1529,7 +1566,10 @@ const Game = (() => {
             super(x, y, size, size, type.color, type, ASSETS.obstaclePng(type.name));
             // 动态难度：按当前积分倍率缩放水平速度（冰晶封顶 +25%）。
             // 只影响新生成的障碍，场上已有障碍保持原速 → 难度平滑过渡
-            this.speed = 2 * getObstacleSpeedMul(type);
+            // （手机端整体再 ×0.9：MOBILE_DIFF.obstSpeed；风暴云(龙卷风)追加
+            // ×0.8：MOBILE_DIFF.tornadoSpeed，真机测其游走速度仍偏快）
+            this.speed = 2 * getObstacleSpeedMul(type) * MOBILE_DIFF.obstSpeed *
+                (type.wander ? MOBILE_DIFF.tornadoSpeed : 1);
             this.baseY = y;          // 漂浮基准线（findSpawnY 给出的防重叠位置）
             this.bornAt = Date.now(); // 动画相位基准（暂停时 update 不跑，恢复后相位前跳，与现有计时风格一致）
             // 冰晶雾底清理（type 共享，_fogDone 防重复启动）
@@ -1540,7 +1580,7 @@ const Game = (() => {
             // 智能游走（风暴云）：初始目标 = 水平向左直行，首个换向点随机落在 0.8~1.5 秒后
             if (type.wander) {
                 const w = type.wander;
-                const mul = getObstacleSpeedMul(type); // 推进速度同样吃难度倍率
+                const mul = getObstacleSpeedMul(type) * MOBILE_DIFF.obstSpeed * MOBILE_DIFF.tornadoSpeed; // 推进速度同样吃难度倍率（含手机端×0.9 与风暴云追加×0.8）
                 this.wander = {
                     vx: -w.baseSpeed * mul, vy: 0,
                     tvx: -w.baseSpeed * mul, tvy: 0,
@@ -1625,8 +1665,10 @@ const Game = (() => {
     }
 
     // 生成安全间距：新物体与场上任何物体（收集物/障碍物/玩偶）至少保持该空隙，
-    // 避免视觉贴在一起（用户建议 12–20px，取中值 16）
-    const SPAWN_GAP = 16;
+    // 避免视觉贴在一起（用户建议 12–20px，PC 取 16）。
+    // 手机端 26：画布更矮（障碍占屏比例更大），加大间距减少"几乎无法躲避"的组合，
+    // 尤其糖果泡泡/风暴云与冰晶之间的贴脸生成（间距越大，生成重试越容易跳过该位置）
+    const SPAWN_GAP = MOBILE_DIFF.spawnGap;
     // 在右边缘为 size×size 的新物体找一个不与场上任何物体重叠的 y：
     // 全部物体同速向左（speed 相同），水平间距不会缩小 —— 只有生成时刻水平方向
     // 有交叠（旧物体尚未完全进入画面）才可能重叠，此时要求 y 区间分离出安全间距；
@@ -1996,13 +2038,13 @@ const Game = (() => {
             collectible.update();
             if (collectible.isOffScreen()) {
                 collectibles.splice(i, 1);
-            } else if (player.collidesWith(collectible) ||
+            } else if (player.collidesWith(collectible, MOBILE_DIFF.collectPad) ||
                        (player.isAutoCollecting && isWithinAttractRange(collectible))) {
-                if (!player.collidesWith(collectible)) {
+                if (!player.collidesWith(collectible, MOBILE_DIFF.collectPad)) {
                     // 绿色大地兽吸附：甜品向玩家缓动靠拢，贴近后才算收集
                     collectible.x += (player.x - collectible.x) * 0.1;
                     collectible.y += (player.y - collectible.y) * 0.1;
-                    if (!player.collidesWith(collectible)) continue; // Not close enough yet
+                    if (!player.collidesWith(collectible, MOBILE_DIFF.collectPad)) continue; // Not close enough yet
                 }
                 score += collectible.type.points;
                 // 动态难度：积分变化后重算倍率；密度档变化时平滑重建障碍生成定时器
@@ -2056,7 +2098,9 @@ const Game = (() => {
             obstacle.update();
             if (obstacle.isOffScreen()) {
                 obstacles.splice(i, 1);
-            } else if (player.collidesWith(obstacle)) {
+            } else if (player.collidesWith(obstacle, 0, MOBILE_DIFF.obstHitbox)) {
+                // 手机端障碍碰撞框边长 ×0.9（中心对齐内缩，视觉不变）：
+                // 触屏下"贴边擦过"不再掉命，判定与视觉仍基本贴合
                 if (player.shieldCharges > 0) {
                     // 紫色布丁护盾：抵挡一次伤害，挡后立即消失（不渐隐不延迟）
                     player.shieldCharges--;
@@ -2335,20 +2379,31 @@ const Game = (() => {
 
         const gameplayScreen = document.getElementById('gameplay-screen');
 
-        // 甜品风暴（唯一主动技能）— 底部居中的小圆汽水杯按钮
+        // 甜品风暴（唯一主动技能）小圆汽水杯按钮
         // （守护兽按钮已移除：大地兽是陪伴伙伴，不是可释放的技能）
+        // 位置按设备分支（内联样式优先级高于 CSS，PC 端规则完全不变）：
+        //   PC：底部居中（历史位置，零改动）；
+        //   移动端（第四轮）：右侧竖排操作区——D-pad 正上方，与 D-pad 同右边距
+        //   （safe-area-inset-right 避让刘海），留 14px 间距防误触；bottom 用与
+        //   D-pad 完全相同的 clamp 公式推算其总高（3 键 + 2×6px 间距），
+        //   任何视口下都精确叠在 D-pad 上方、不超出屏幕
         const skill2Btn = document.createElement('button');
         skill2Btn.id = 'virtual-skill2-button';
         skill2Btn.textContent = '甜品风暴 0%';
         skill2Btn.classList.add('virtual-skill-button');
-        // 底部居中：left/right 双 0 + margin auto 居中，不用 transform（避免与按下缩放动画冲突）
-        skill2Btn.style.cssText = 'position: absolute; bottom: max(20px, env(safe-area-inset-bottom, 0px)); left: 0; right: 0; margin: 0 auto;';
+        skill2Btn.style.cssText = IS_MOBILE
+            ? // 移动端：右侧竖排（D-pad 上方 14px）
+              'position: absolute; right: max(14px, env(safe-area-inset-right, 0px));' +
+              'bottom: calc(max(14px, env(safe-area-inset-bottom, 0px)) + 3 * clamp(48px, 7.2vh, 58px) + 12px + 14px);' +
+              'margin: 0;'
+            : // PC 底部居中：left/right 双 0 + margin auto 居中，不用 transform（避免与按下缩放动画冲突）
+              'position: absolute; bottom: max(20px, env(safe-area-inset-bottom, 0px)); left: 0; right: 0; margin: 0 auto;';
         skill2Btn.addEventListener('click', () => useSkill('dessertStorm'));
         gameplayScreen.appendChild(skill2Btn);
         virtualButtons.skill2 = skill2Btn;
 
         // ============================================================
-        // 移动端虚拟方向键（左下角十字键）：半透明奶白玻璃风。
+        // 移动端虚拟方向键（右下角十字键）：半透明奶白玻璃风。
         // 复用键盘控制通道（keys 表 + setPlayerDirection）：
         // 长按持续移动、松开立即停止，与键盘 / 画布拖动操作完全共存；
         // 仅移动端创建（IS_MOBILE），PC 端不生成、零影响。
@@ -2803,6 +2858,10 @@ const Game = (() => {
     };
 
     const start = () => {
+        // 进入对局时按当前可视区域重算画布：全屏/地址栏收展可能发生在菜单期间
+        // （「开始冒险」即申请全屏），那些 resize 发生时对局页未激活、不会重算，
+        // 若不在此补算，画布会沿用旧尺寸导致超高溢出/过小留白
+        resizeCanvas();
         if (!isRunning) {
             isRunning = true;
             isPaused = false;      // 新一局从非暂停状态开始

@@ -2171,14 +2171,17 @@ body.is-mobile:not(.is-portrait) #rotate-overlay { display: none !important; }
 }
 
 /* ============================================================
-   移动端虚拟方向键（#virtual-dpad）：左下角十字键
+   移动端虚拟方向键（#virtual-dpad）：右下角十字键（第四轮：由左下
+   移到右下，右手拇指操作更顺手；仅改定位，四键功能/触摸事件/按键
+   映射与 JS 逻辑完全不变）
    半透明奶白玻璃风（与全局冰晶薄荷玻璃语言一致）；
    仅移动端由 JS 创建，PC 端无此元素。z-index 低于暂停/引导浮层(30)，
-   浮层出现时方向键被盖住不可误触；位置避让安全区不贴边。
+   浮层出现时方向键被盖住不可误触；位置避让安全区不贴边
+   （右侧用 safe-area-inset-right 适配刘海/圆角屏，不超出可视区域）。
    ============================================================ */
 #virtual-dpad {
     position: absolute;
-    left: max(14px, env(safe-area-inset-left, 0px));
+    right: max(14px, env(safe-area-inset-right, 0px));
     bottom: max(14px, env(safe-area-inset-bottom, 0px));
     z-index: 20;
     display: grid;
