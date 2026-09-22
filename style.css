@@ -2040,9 +2040,29 @@ body.is-touch #game-container {
     max-width: none;
     border: none;
     border-radius: 0;
+    min-height: 0; /* 覆盖 PC 的 400px 下限：横屏手机可视高度常不足 400px，不下限撑高 */
     height: 100vh; /* 兜底 */
     height: 100dvh; /* 手机浏览器动态视口高度 */
+    /* JS 实测可视高度（--app-height，最高优先）：
+       兼容不支持 dvh 的内核（微信 X5 等），地址栏/工具栏出现时容器
+       精确等于实际可视区域，底部按钮不再被裁出屏幕 */
+    height: var(--app-height, 100dvh);
 }
+
+/* 手机端 body 顶对齐：body 按 100vh（大视口）布局的 flex 居中会把容器往下推
+   约半个地址栏高度，导致游戏顶部被地址栏遮住（"顶部被占用"的来源）。
+   容器高度已是实测可视高度，顶对齐后从可视区顶部开始铺满 */
+body.is-touch {
+    align-items: flex-start;
+}
+
+/* 内容超高时顶对齐 + 可滚动：老内核不支持 justify-content: safe center，
+   回落普通 center 时内容超高会上下两端同时裁切且滚动不到底
+   （角色选择"确认"按钮看不到的来源）。首尾子元素 margin:auto：
+   内容少时依然视觉居中、内容多时归零不裁切（全内核兼容） */
+body.is-touch .game-screen { justify-content: flex-start; }
+body.is-touch .game-screen > :first-child { margin-top: auto; }
+body.is-touch .game-screen > :last-child { margin-bottom: auto; }
 
 /* 全屏时隐藏 PC 杯壁流光环（与窄屏媒体查询同款处理） */
 body.is-touch #game-container::before {
@@ -2062,7 +2082,9 @@ body.is-touch .game-screen {
    保证 Logo 与按钮组都完整显示、不裁切不变形 */
 @media (orientation: landscape) {
     body.is-touch .menu-logo {
-        width: min(58vw, 520px, calc(100vh - 185px));
+        /* 用 JS 实测视口高度（--app-height）代替 100vh：
+           地址栏场景下不过度放大，Logo 与按钮组都完整显示 */
+        width: min(58vw, 520px, calc(var(--app-height, 100vh) - 185px));
     }
     body.is-touch .menu-primary {
         padding: 26px 20px 12px;
@@ -2095,8 +2117,15 @@ body.is-touch .game-screen {
 }
 
 @media (orientation: portrait) {
-    body.is-mobile #rotate-overlay { display: flex; }
+    body.is-mobile #rotate-overlay { display: flex; } /* 无 JS 时兜底 */
 }
+
+/* JS 方向状态机优先（body.is-portrait 由实测 innerWidth/innerHeight 驱动）：
+   部分内核（微信 X5 等）旋转后媒体查询评估滞后/失真，以 JS 实测为准——
+   JS 判定横屏时强制隐藏提示（即使媒体查询仍认为竖屏）；
+   JS 判定竖屏时直接显示（不依赖媒体查询是否已重评估） */
+body.is-mobile.is-portrait #rotate-overlay { display: flex; }
+body.is-mobile:not(.is-portrait) #rotate-overlay { display: none !important; }
 
 /* 旋转手机小图标：CSS 绘制的圆角手机轮廓，往复旋转 0°↔90° 示意横屏 */
 .rotate-phone {

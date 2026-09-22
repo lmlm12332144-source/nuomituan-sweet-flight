@@ -4,10 +4,24 @@
 const IS_TOUCH = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
     ('ontouchstart' in window);
 
-// 移动设备判定（比 IS_TOUCH 更严格）：主输入为粗指针且无悬停能力（手机/平板）。
-// 仅用于"强制横屏提示"与"虚拟方向键"；带触屏的 PC（主指针是鼠标）不会误判，桌面端完全不受影响。
-const IS_MOBILE = typeof window.matchMedia === 'function' &&
-    window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+// 移动设备判定（多信号综合，修复部分手机浏览器误判为电脑的问题）。
+// 单一依赖 (hover:none)+(pointer:coarse) 在某些国产浏览器 / "电脑版 UA"模式下会失真，
+// 导致"请横屏体验"提示与虚拟方向键全部不出现。现改为多信号取并集：
+//   ① 媒体查询（原判断，保留）② 触摸能力 maxTouchPoints / msMaxTouchPoints / ontouchstart
+//   ③ 移动端 UA 特征 ④ iPadOS（UA 伪装成 Mac 但带多点触摸）⑤ 物理屏幕较小。
+// 触屏 PC（Windows 笔记本等）：有触摸但 UA 非移动端且物理屏幕大 → 不会误判，桌面端零影响。
+const IS_MOBILE = (() => {
+    const mq = typeof window.matchMedia === 'function' &&
+        window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const maxTouch = (navigator.maxTouchPoints || navigator.msMaxTouchPoints || 0);
+    const hasTouch = maxTouch > 0 || ('ontouchstart' in window);
+    const ua = navigator.userAgent || '';
+    const mobileUA = /Android|iPhone|iPod|Mobile|HarmonyOS/i.test(ua);
+    const iPadOS = /Macintosh/i.test(ua) && maxTouch > 1; // iPadOS 13+ 默认伪装成 Mac
+    const scr = window.screen || {};
+    const smallScreen = Math.min(scr.width || 9999, scr.height || 9999) <= 850;
+    return mq || (hasTouch && (mobileUA || iPadOS || smallScreen));
+})();
 
 // ============================================================
 // 角色衣柜皮肤配置（全局常量，衣橱 UI 与游戏绘制共用）：
@@ -2643,31 +2657,63 @@ const Game = (() => {
     };
 
     // ============================================================
-    // 移动端强制横屏：竖屏打开/旋转到竖屏时暂停游戏（"请横屏体验"提示层
-    // 由 CSS 显示，body.is-mobile + 竖屏媒体查询控制），转回横屏自动恢复，
-    // 无需任何额外操作。仅移动端生效（IS_MOBILE），PC 端零影响。
+    // 移动端强制横屏：方向状态机（多信号兜底，兼容微信 X5 / 国产浏览器）。
+    // 不再依赖 matchMedia('orientation') 的 change 事件（微信旋转后经常不触发、
+    // 部分内核媒体查询评估滞后），改为直接实测 innerWidth/innerHeight 宽高：
+    //   驱动源 = resize + orientationchange(延迟重读) + visualViewport.resize
+    //            + 500ms 低频轮询（部分浏览器旋转后不发任何事件）
+    // body.is-portrait 类供 CSS 控制提示层显隐（媒体查询仅作无 JS 兜底）；
+    // 竖屏：对局自动冻结（横屏提示层全覆盖）；横屏：自动恢复。
+    // 同时维护 --app-height（真实可视高度 px），供 CSS 兼容不支持 dvh 的内核。
+    // 仅移动端生效（IS_MOBILE），PC 端零影响。
     // ============================================================
     let portraitPaused = false; // 因竖屏触发的暂停（区别于玩家手动暂停）
-    const watchOrientation = () => {
-        if (!IS_MOBILE || !window.matchMedia) return;
-        document.body.classList.add('is-mobile'); // CSS 据此显示横屏提示层与安全区样式
-        const portraitMq = window.matchMedia('(orientation: portrait)');
-        const onOrientationFlip = () => {
-            if (portraitMq.matches) {
-                // 转到竖屏：进行中的对局自动冻结（玩家手动暂停/新手引导期间不动）
-                if (isRunning && !isPaused && !tutorialActive) {
-                    pauseGame();
-                    hidePauseOverlay(); // 暂停浮层不显示，由横屏提示层全屏覆盖
-                    portraitPaused = true;
-                }
-            } else if (portraitPaused) {
-                // 回到横屏：自动恢复对局（"横屏后自动进入游戏"）
-                portraitPaused = false;
-                resumeGame();
+    let lastPortrait = null;    // 上次判定的方向（null = 未初始化）
+    let lastAppHeight = 0;      // 上次写入的真实可视高度（变化守卫，避免无谓重排）
+    // 真实可视高度（地址栏/工具栏动态收展时同步更新），写入 CSS 变量 --app-height
+    const updateAppHeight = () => {
+        const vv = window.visualViewport;
+        const h = Math.round((vv && vv.height) ? vv.height : window.innerHeight);
+        if (h === lastAppHeight) return;
+        lastAppHeight = h;
+        document.documentElement.style.setProperty('--app-height', h + 'px');
+        // 容器高度实际变化时重算游戏画布（仅对局界面可见时，避免菜单期无谓重置）
+        const gameplayScreen = document.getElementById('gameplay-screen');
+        if (gameplayScreen && gameplayScreen.classList.contains('active')) resizeCanvas();
+    };
+    const applyOrientationState = () => {
+        const portrait = window.innerHeight > window.innerWidth;
+        document.body.classList.toggle('is-portrait', portrait);
+        updateAppHeight();
+        if (portrait === lastPortrait) return; // 方向未变化：不重复处理
+        lastPortrait = portrait;
+        if (portrait) {
+            // 转到竖屏：进行中的对局自动冻结（玩家手动暂停/新手引导期间不动）
+            if (isRunning && !isPaused && !tutorialActive) {
+                pauseGame();
+                hidePauseOverlay(); // 暂停浮层不显示，由横屏提示层全屏覆盖
+                portraitPaused = true;
             }
-        };
-        if (portraitMq.addEventListener) portraitMq.addEventListener('change', onOrientationFlip);
-        else if (portraitMq.addListener) portraitMq.addListener(onOrientationFlip);
+        } else if (portraitPaused) {
+            // 回到横屏：自动恢复对局（"横屏后自动进入游戏"）
+            portraitPaused = false;
+            resumeGame();
+        }
+    };
+    const watchOrientation = () => {
+        if (!IS_MOBILE) return;
+        document.body.classList.add('is-mobile'); // CSS 据此显示横屏提示层与安全区样式
+        applyOrientationState(); // 初次判定（页面刚打开即正确显示/隐藏提示层）
+        window.addEventListener('resize', applyOrientationState);
+        window.addEventListener('orientationchange', () => {
+            // 旋转事件触发时视口尺寸可能尚未更新，延迟重读两次
+            setTimeout(applyOrientationState, 120);
+            setTimeout(applyOrientationState, 400);
+        });
+        if (window.visualViewport && window.visualViewport.addEventListener) {
+            window.visualViewport.addEventListener('resize', applyOrientationState);
+        }
+        setInterval(applyOrientationState, 500); // 轮询兜底（微信等旋转不发事件的浏览器）
     };
 
     const init = () => {
@@ -3297,11 +3343,11 @@ const DessertDexUI = (() => {
     return { render };
 })();
 
-// 设置界面：音乐/音效开关 + BGM 音量（默认 90%）/ 音效音量（默认 90%）滑条。
+// 设置界面：音乐/音效开关 + BGM 音量（默认 40%）/ 音效音量（默认 90%）滑条。
 // 设置写入 localStorage 持久化，下次打开自动恢复；音量变动即时生效。
 const SettingsUI = (() => {
     const SETTINGS_KEY = 'nacrez_settings';
-    let settings = { music: true, sound: true, bgmVolume: 0.9, sfxVolume: 0.9 };
+    let settings = { music: true, sound: true, bgmVolume: 0.4, sfxVolume: 0.9 };
 
     const load = () => {
         try {
@@ -3309,7 +3355,7 @@ const SettingsUI = (() => {
             if (saved && typeof saved === 'object') Object.assign(settings, saved);
         } catch (e) { /* localStorage 不可用时用默认值 */ }
         // 数值兜底：非法/缺失时回落默认值并夹紧到 [0,1]
-        if (typeof settings.bgmVolume !== 'number' || isNaN(settings.bgmVolume)) settings.bgmVolume = 0.9;
+        if (typeof settings.bgmVolume !== 'number' || isNaN(settings.bgmVolume)) settings.bgmVolume = 0.4;
         if (typeof settings.sfxVolume !== 'number' || isNaN(settings.sfxVolume)) settings.sfxVolume = 0.9;
         settings.bgmVolume = Math.min(1, Math.max(0, settings.bgmVolume));
         settings.sfxVolume = Math.min(1, Math.max(0, settings.sfxVolume));
@@ -3433,7 +3479,7 @@ const AudioManager = (() => {
     // 目标音量 = 音乐开关 × BGM 音量设置
     const targetVolume = () => {
         const s = SettingsUI.getSettings();
-        return s.music ? (typeof s.bgmVolume === 'number' ? s.bgmVolume : 0.9) : 0;
+        return s.music ? (typeof s.bgmVolume === 'number' ? s.bgmVolume : 0.4) : 0;
     };
 
     // 音量渐变：清旧定时器 → 50ms 步进线性逼近目标，到点执行回调（如 pause）
