@@ -2240,3 +2240,51 @@ body.is-mobile:not(.is-portrait) #rotate-overlay { display: none !important; }
 /* PC 窄窗口兜底：媒体查询触发的窄屏样式不应让 #virtual-dpad 误显示
    （元素本身只在移动端由 JS 创建，这里仅防御性隐藏规则，正常不生效） */
 body:not(.is-mobile) #virtual-dpad { display: none; }
+
+/* ============================================================
+   移动端横屏矮视口压缩（第三轮·真沉浸第二支柱）：
+   进入全屏后可视高度 ≈ 360~400px（典型手机横屏），为竖屏/PC 设计的
+   内容尺寸会超出 → 出现滚动、"上下滑动能看到但体验不舒服"。
+   以下规则只在 移动端(is-touch) + 横屏 生效，把各屏内容压进一屏，
+   无需滚动即完整显示；竖屏与 PC 完全不受影响。
+   虚拟方向键相关样式一律不动（用户明确要求保留现有实现）。
+   ============================================================ */
+@media (orientation: landscape) {
+    /* 屏幕间距/底部留白紧凑化：给内容让出更多可用高度 */
+    body.is-touch .game-screen {
+        gap: clamp(4px, 1vh, 8px);
+        padding-bottom: max(clamp(10px, 1.6vh, 16px), env(safe-area-inset-bottom, 0px));
+    }
+
+    /* 角色选择屏：标题/副标题/名字/按钮/hero 全面紧凑化，
+       高度预算 = header + hero + 名字 + 按钮 + 间距 ≤ 可视高度 */
+    body.is-touch .char-header { margin-bottom: 2px; }
+    body.is-touch .char-title { font-size: clamp(1.15em, 4.2vh, 1.7em); }
+    body.is-touch .char-subtitle { margin-top: 2px; font-size: clamp(0.78em, 2.2vh, 0.95em); }
+    body.is-touch .char-hero {
+        /* hero 高 = 可视高 − 其余内容固定开销（约 235px：header/名字/按钮/
+           间距/安全边距实测总和），宽按 6:5 比例换算并夹取上下限；
+           用 --app-height 实测值，地址栏收展时自动跟随 */
+        width: min(58vw, max(calc((var(--app-height, 100vh) - 235px) * 1.2), 120px), 330px);
+    }
+    body.is-touch .char-name { margin-top: 2px; font-size: clamp(0.82em, 2.4vh, 0.98em); }
+    body.is-touch .char-primary {
+        font-size: clamp(0.98em, 2.8vh, 1.2em);
+        padding: clamp(10px, 1.8vh, 14px) 20px;
+    }
+
+    /* 关卡选择卡片：矮视口下 16:9 封面会撑高卡片（40vw 宽卡 ≈ 90px 封面 +
+       名称 + 返回按钮易超一屏），改为按视口高度取固定档 */
+    body.is-touch .level-card { width: clamp(140px, 34vw, 210px); gap: clamp(4px, 0.9vh, 8px); }
+    body.is-touch .level-cover { aspect-ratio: auto; height: clamp(64px, 20vh, 118px); }
+}
+
+/* ============================================================
+   移动端禁止页面弹滚：横屏游戏时快速滑动不再触发整页橡皮筋回弹/
+   过界滚动（内容已压缩进一屏，弹滚只会干扰方向盘操作）。
+   body 规则全内核生效；html 用 :has 跟随（老内核不支持时仅少了
+   根元素一层约束，body 层仍生效，无副作用）。PC 端无 is-touch 类，
+   完全不受影响。
+   ============================================================ */
+body.is-touch { overscroll-behavior: none; }
+html:has(body.is-touch) { overscroll-behavior: none; }

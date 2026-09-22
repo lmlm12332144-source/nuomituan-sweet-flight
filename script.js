@@ -24,6 +24,40 @@ const IS_MOBILE = (() => {
 })();
 
 // ============================================================
+// 移动端沉浸式全屏（第三轮）：必须在用户点击手势内同步调用。
+// Android 系浏览器（Chrome/Edge/主流国产内核）支持 Fullscreen API +
+// screen.orientation.lock：成功后隐藏地址栏/工具栏并锁定横屏，
+// 游戏真正占满整块屏幕、进入沉浸模式。
+// iOS Safari / 微信 iOS（WKWebView）不支持全屏 API：这里全部静默降级
+// （不报错、无副作用），继续沿用现有的 --app-height + 竖屏提示方案。
+// 全屏切换会触发 window resize → 方向状态机自动更新 --app-height 并
+// resizeCanvas，画布无需额外处理即占满新的可用区域。
+// 电脑端直接 return，行为零变化。
+// ============================================================
+function requestImmersive() {
+    if (!IS_MOBILE) return; // 电脑端完全不做任何事
+    const el = document.documentElement;
+    const reqFs = el.requestFullscreen || el.webkitRequestFullscreen ||
+        el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (!reqFs) return; // 不支持全屏 API（iOS 系）：静默跳过
+    try {
+        const p = reqFs.call(el);
+        if (p && typeof p.then === 'function') {
+            p.then(() => {
+                // 全屏成功后再尝试锁定横屏（部分内核要求全屏状态才允许锁定；
+                // 锁定失败同样静默——用户手动横屏 + 现有状态机仍可正常游戏）
+                try {
+                    const lockP = window.screen && screen.orientation &&
+                        typeof screen.orientation.lock === 'function' &&
+                        screen.orientation.lock('landscape');
+                    if (lockP && typeof lockP.catch === 'function') lockP.catch(() => {});
+                } catch (e) { /* 忽略 */ }
+            }).catch(() => { /* 用户拒绝或内核限制：静默降级 */ });
+        }
+    } catch (e) { /* 忽略 */ }
+}
+
+// ============================================================
 // 角色衣柜皮肤配置（全局常量，衣橱 UI 与游戏绘制共用）：
 // 衣柜选择的是"系列"（classic/mint/star），进入游戏后自动播放该系列 1→2→3 嘴型动画。
 // 1/2/3 不是三个独立皮肤，而是吃食物时的三帧嘴型（三系列共用同一套时序）：
@@ -266,6 +300,7 @@ const GameManager = (() => {
 
         // Game Over Screen Buttons
         document.getElementById('retry-button').addEventListener('click', () => {
+            requestImmersive(); // 移动端：借这次点击手势申请沉浸式全屏（非移动端无操作）
             showScreen('gameplay');
             Game.start(); // Restart game logic here
             console.log(`Retry Game with Outfit: ${selectedOutfit}`);
@@ -352,6 +387,7 @@ const GameManager = (() => {
 
             card.addEventListener('click', () => {
                 if (card.classList.contains('locked')) return; // 未开放关卡：忽略点击
+                requestImmersive(); // 移动端：借这次点击手势申请沉浸式全屏（非移动端无操作）
                 selectedLevel = meta.level;
                 showScreen('gameplay');
                 Game.start(); // 开始关卡（携带当前装扮与所选关卡）
