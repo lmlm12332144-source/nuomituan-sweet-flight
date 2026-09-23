@@ -5,6 +5,16 @@
     <!-- viewport-fit=cover：全面屏留出 Safe Area（配合 CSS env(safe-area-inset-*)）；
          maximum-scale=1：游戏中禁止双击/捏合缩放，保证触摸操控稳定 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- 微信 X5 / UC 内核兼容（其他浏览器不识别自动忽略，零影响）：
+         X5 内核默认锁定网页竖屏渲染——手机横转后 innerHeight 仍 > innerWidth，
+         "请横屏体验"遮罩永不消失、画面被盖。声明以下 meta 后 X5 解锁横屏：
+         x5-orientation 强制横屏渲染；x5-fullscreen/full-screen 沉浸全屏；
+         x5-page-mode 网页应用模式（隐藏浏览器头部） -->
+    <meta name="x5-orientation" content="landscape">
+    <meta name="screen-orientation" content="landscape">
+    <meta name="x5-fullscreen" content="true">
+    <meta name="full-screen" content="yes">
+    <meta name="x5-page-mode" content="app">
     <title>糯米团的甜品飞行日</title>
     <link rel="stylesheet" href="style.css">
 </head>

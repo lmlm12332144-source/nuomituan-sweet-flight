@@ -40,6 +40,10 @@ const IS_MOBILE = (() => {
 // ============================================================
 function requestImmersive() {
     if (!IS_MOBILE) return; // 电脑端完全不做任何事
+    // 已处于全屏状态：不重复请求（本次起主菜单各入口按钮都会触发申请；
+    // 用户主动退出全屏后再点击入口按钮，仍会重新申请全屏）
+    if (document.fullscreenElement || document.webkitFullscreenElement ||
+        document.mozFullScreenElement || document.msFullscreenElement) return;
     const el = document.documentElement;
     const reqFs = el.requestFullscreen || el.webkitRequestFullscreen ||
         el.mozRequestFullScreen || el.msRequestFullscreen;
@@ -224,12 +228,14 @@ const GameManager = (() => {
         });
 
         document.getElementById('wardrobe-button').addEventListener('click', () => {
+            requestImmersive(); // 移动端：主菜单入口手势内同步申请全屏（同「开始冒险」）
             showScreen('outfitSelection');
             console.log("Go to Outfit Selection");
         });
 
         // Dessert Dex Button
         document.getElementById('dex-button').addEventListener('click', () => {
+            requestImmersive(); // 移动端：主菜单入口手势内同步申请全屏
             DessertDexUI.render(); // 每次打开都按最新 DESSERT_DEX 数据重绘（UI 只读取数据）
             showScreen('dessertDex');
             console.log("Go to Dessert Dex");
@@ -237,22 +243,26 @@ const GameManager = (() => {
 
         // Earthen Beast Info Button（大地兽伙伴：只读信息展示）
         document.getElementById('beast-button').addEventListener('click', () => {
+            requestImmersive(); // 移动端：主菜单入口手势内同步申请全屏
             BeastInfoUI.render(); // 每次打开按数据重绘
             showScreen('beastScreen');
             console.log("Go to Earthen Beast Info");
         });
 
         document.getElementById('level-button').addEventListener('click', () => {
+            requestImmersive(); // 移动端：主菜单入口手势内同步申请全屏
             showScreen('levelSelection');
             console.log("Go to Level Selection");
         });
 
         document.getElementById('settings-button').addEventListener('click', () => {
+            requestImmersive(); // 移动端：主菜单入口手势内同步申请全屏
             showScreen('settings');
             console.log("Go to Settings");
         });
 
         document.getElementById('about-button').addEventListener('click', () => {
+            requestImmersive(); // 移动端：主菜单入口手势内同步申请全屏
             showScreen('about');
             console.log("Go to About");
         });
@@ -2383,19 +2393,22 @@ const Game = (() => {
         // （守护兽按钮已移除：大地兽是陪伴伙伴，不是可释放的技能）
         // 位置按设备分支（内联样式优先级高于 CSS，PC 端规则完全不变）：
         //   PC：底部居中（历史位置，零改动）；
-        //   移动端（第四轮）：右侧竖排操作区——D-pad 正上方，与 D-pad 同右边距
+        //   移动端：右侧竖排操作区——D-pad 正上方，与 D-pad 同右边距
         //   （safe-area-inset-right 避让刘海），留 14px 间距防误触；bottom 用与
         //   D-pad 完全相同的 clamp 公式推算其总高（3 键 + 2×6px 间距），
-        //   任何视口下都精确叠在 D-pad 上方、不超出屏幕
+        //   任何视口下都精确叠在 D-pad 上方、不超出屏幕。
+        //   本轮：随 D-pad 同步上移 60px 避让 "Powered by Netlify" 标识；
+        //   尺寸 76→60px（≈79%），文字字号同步微缩、仍易点击（仅移动端，
+        //   PC 分支与公共 CSS 均不变）
         const skill2Btn = document.createElement('button');
         skill2Btn.id = 'virtual-skill2-button';
         skill2Btn.textContent = '甜品风暴 0%';
         skill2Btn.classList.add('virtual-skill-button');
         skill2Btn.style.cssText = IS_MOBILE
-            ? // 移动端：右侧竖排（D-pad 上方 14px）
+            ? // 移动端：右侧竖排（D-pad 上方 14px，整体随 D-pad 上移 60px）
               'position: absolute; right: max(14px, env(safe-area-inset-right, 0px));' +
-              'bottom: calc(max(14px, env(safe-area-inset-bottom, 0px)) + 3 * clamp(48px, 7.2vh, 58px) + 12px + 14px);' +
-              'margin: 0;'
+              'bottom: calc(max(14px, env(safe-area-inset-bottom, 0px)) + 60px + 3 * clamp(48px, 7.2vh, 58px) + 12px + 14px);' +
+              'width: 60px; height: 60px; margin: 0; font-size: clamp(0.6em, 1.7vw, 0.68em);'
             : // PC 底部居中：left/right 双 0 + margin auto 居中，不用 transform（避免与按下缩放动画冲突）
               'position: absolute; bottom: max(20px, env(safe-area-inset-bottom, 0px)); left: 0; right: 0; margin: 0 auto;';
         skill2Btn.addEventListener('click', () => useSkill('dessertStorm'));
@@ -2761,11 +2774,13 @@ const Game = (() => {
     let portraitPaused = false; // 因竖屏触发的暂停（区别于玩家手动暂停）
     let lastPortrait = null;    // 上次判定的方向（null = 未初始化）
     let lastAppHeight = 0;      // 上次写入的真实可视高度（变化守卫，避免无谓重排）
-    // 真实可视高度（地址栏/工具栏动态收展时同步更新），写入 CSS 变量 --app-height
+    // 真实可视高度（地址栏/工具栏动态收展时同步更新），写入 CSS 变量 --app-height。
+    // h>0 守卫：部分内核（微信 X5 等）初始化瞬间 innerHeight/visualViewport.height
+    // 可能为 0，写入 0px 会让 game-container 高度归零、画面整块消失（微信白屏的来源之一）
     const updateAppHeight = () => {
         const vv = window.visualViewport;
         const h = Math.round((vv && vv.height) ? vv.height : window.innerHeight);
-        if (h === lastAppHeight) return;
+        if (!(h > 0) || h === lastAppHeight) return;
         lastAppHeight = h;
         document.documentElement.style.setProperty('--app-height', h + 'px');
         // 容器高度实际变化时重算游戏画布（仅对局界面可见时，避免菜单期无谓重置）

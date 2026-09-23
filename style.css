@@ -2178,11 +2178,13 @@ body.is-mobile:not(.is-portrait) #rotate-overlay { display: none !important; }
    仅移动端由 JS 创建，PC 端无此元素。z-index 低于暂停/引导浮层(30)，
    浮层出现时方向键被盖住不可误触；位置避让安全区不贴边
    （右侧用 safe-area-inset-right 适配刘海/圆角屏，不超出可视区域）。
+   本轮：整体上移 60px，给页面底部 "Powered by Netlify" 标识留出
+   安全距离，确保"下"键完整可见不被遮挡。
    ============================================================ */
 #virtual-dpad {
     position: absolute;
     right: max(14px, env(safe-area-inset-right, 0px));
-    bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    bottom: calc(max(14px, env(safe-area-inset-bottom, 0px)) + 60px);
     z-index: 20;
     display: grid;
     grid-template-columns: repeat(3, auto);
